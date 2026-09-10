@@ -100,7 +100,7 @@ const OrderTrackingPage = () => {
   const dragControls = useDragControls();
 
   // ── Load Google Maps via useJsApiLoader (same as delivery LiveTracking.jsx) ──
-  const { isLoaded: mapLoaded } = useJsApiLoader({
+  const { isLoaded: mapLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
     libraries: GOOGLE_MAPS_LIBRARIES,
@@ -226,6 +226,20 @@ const OrderTrackingPage = () => {
     return getDistanceInMeters(last.location, loc) > 150 || now - last.time > 90_000;
   }
 
+  // Helper to fallback to MongoDB last-known driver coordinates
+  const syncDriverFallbackLocation = (data) => {
+    if (data?.deliveryPartnerId?.currentLocation?.coordinates?.length === 2) {
+      const [lng, lat] = data.deliveryPartnerId.currentLocation.coordinates;
+      if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0)) {
+        setRiderLocation((prev) => prev || { lat, lng });
+        setWaitingForRider(false);
+        if (data.deliveryPartnerId.locationUpdatedAt) {
+          setLastUpdated((prev) => prev || new Date(data.deliveryPartnerId.locationUpdatedAt));
+        }
+      }
+    }
+  };
+
   // ── Load order & Realtime Polling ──────────────────────────────────────────
   useEffect(() => {
     if (!token || !id) return;
@@ -234,6 +248,7 @@ const OrderTrackingPage = () => {
       try {
         const data = await orderApi.fetchOrderDetails(token, id);
         setOrder(data);
+        syncDriverFallbackLocation(data);
         if (NON_TRACKABLE.includes(data.status)) {
           setTrackingError(`Tracking not available for status: ${data.status.replace(/_/g, ' ')}`);
         }
@@ -250,6 +265,7 @@ const OrderTrackingPage = () => {
     const intervalId = setInterval(async () => {
       try {
         const data = await orderApi.fetchOrderDetails(token, id);
+        syncDriverFallbackLocation(data);
         setOrder((prev) => {
           if (!prev) return data;
           // Trigger state update only if status, deliveryRunId, or deliveryPartnerId changed
@@ -277,22 +293,35 @@ const OrderTrackingPage = () => {
   // ── Firebase real-time listener ────────────────────────────────────────────
   useEffect(() => {
     if (!order) return;
-    const trackingId = order.deliveryRunId?.toString?.() || order.deliveryRunId || order._id;
-    if (!trackingId) return;
+    const trackingIds = [
+      order.deliveryRunId?.toString?.() || order.deliveryRunId,
+      order.deliveryPartnerId?._id?.toString?.() || order.deliveryPartnerId?._id,
+      order._id?.toString?.() || order._id
+    ].filter(Boolean);
 
-    const trackingRef = ref(db, `active_trackings/${trackingId}`);
-    const unsubscribe = onValue(trackingRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data?.location) { setWaitingForRider(true); return; }
-      const { lat, lng } = data.location;
-      if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) return;
-      setRiderLocation({ lat, lng });
-      setWaitingForRider(false);
-      setLastUpdated(data.updatedAt ? new Date(data.updatedAt) : new Date());
+    const uniqueTrackingIds = [...new Set(trackingIds)];
+    if (!uniqueTrackingIds.length) return;
+
+    const unsubscribers = uniqueTrackingIds.map((tid) => {
+      const trackingRef = ref(db, `active_trackings/${tid}`);
+      return onValue(trackingRef, (snapshot) => {
+        const data = snapshot.val();
+        if (!data?.location) return;
+        const { lat, lng } = data.location;
+        if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) return;
+        setRiderLocation({ lat, lng });
+        setWaitingForRider(false);
+        setLastUpdated(data.updatedAt ? new Date(data.updatedAt) : new Date());
+      });
     });
 
-    return () => off(trackingRef, 'value', unsubscribe);
-  }, [order]);
+    return () => {
+      uniqueTrackingIds.forEach((tid, idx) => {
+        const trackingRef = ref(db, `active_trackings/${tid}`);
+        off(trackingRef, 'value', unsubscribers[idx]);
+      });
+    };
+  }, [order?.deliveryRunId, order?.deliveryPartnerId?._id, order?._id]);
 
   // ── Route fetch (billing-safe throttle) ───────────────────────────────────
   useEffect(() => {
@@ -368,7 +397,7 @@ const OrderTrackingPage = () => {
   }, [map, riderLocation]);
 
   // ── Loading ────────────────────────────────────────────────────────────────
-  if (isLoading || !mapLoaded) {
+  if (isLoading || (!mapLoaded && !loadError)) {
     return (
       <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-slate-50 dark:bg-zinc-950 text-gray-900 dark:text-white">
         <Loader2 className="animate-spin text-emerald-500 mb-4" size={48} />
@@ -433,51 +462,63 @@ const OrderTrackingPage = () => {
         onMouseDown={() => setIsFOLLOWING(false)}
         onTouchStart={() => setIsFOLLOWING(false)}
       >
-        <GoogleMap
-          mapContainerStyle={mapContainerStyle}
-          center={isFOLLOWING ? mapCenter : (mapCenterRef.current || mapCenter)}
-          zoom={isFOLLOWING ? 15 : mapZoomRef.current}
-          onLoad={onMapLoad}
-          onUnmount={onMapUnmount}
-          options={mapOptions}
-          onDragStart={() => setIsFOLLOWING(false)}
-          onCenterChanged={handleCenterChanged}
-          onZoomChanged={handleZoomChanged}
-        >
-          {/* Store marker */}
-          {storePos && order.status !== 'out_for_delivery' && storeMarkerIcon && (
-            <MarkerF
-              position={storePos}
-              icon={storeMarkerIcon}
-            />
-          )}
+        {mapLoaded && window.google ? (
+          <GoogleMap
+            mapContainerStyle={mapContainerStyle}
+            center={isFOLLOWING ? mapCenter : (mapCenterRef.current || mapCenter)}
+            zoom={isFOLLOWING ? 15 : mapZoomRef.current}
+            onLoad={onMapLoad}
+            onUnmount={onMapUnmount}
+            options={mapOptions}
+            onDragStart={() => setIsFOLLOWING(false)}
+            onCenterChanged={handleCenterChanged}
+            onZoomChanged={handleZoomChanged}
+          >
+            {/* Store marker */}
+            {storePos && order.status !== 'out_for_delivery' && storeMarkerIcon && (
+              <MarkerF
+                position={storePos}
+                icon={storeMarkerIcon}
+              />
+            )}
 
-          {/* Destination marker */}
-          {destPos && destMarkerIcon && (
-            <MarkerF
-              position={destPos}
-              icon={destMarkerIcon}
-            />
-          )}
+            {/* Destination marker */}
+            {destPos && destMarkerIcon && (
+              <MarkerF
+                position={destPos}
+                icon={destMarkerIcon}
+              />
+            )}
 
-          {/* Rider marker */}
-          {riderLocation && riderMarkerIcon && (
-            <MarkerF
-              position={riderLocation}
-              icon={riderMarkerIcon}
-              zIndex={10}
-            />
-          )}
+            {/* Rider marker */}
+            {riderLocation && riderMarkerIcon && (
+              <MarkerF
+                position={riderLocation}
+                icon={riderMarkerIcon}
+                zIndex={10}
+              />
+            )}
 
-          {/* Route polyline — 3 layers like delivery app */}
-          {trimmedRoute.length > 0 && (
-            <>
-              <Polyline path={trimmedRoute} options={{ strokeColor: '#000000', strokeOpacity: 0.1, strokeWeight: 8, lineCap: 'round' }} />
-              <Polyline path={trimmedRoute} options={{ strokeColor: '#0c831f', strokeOpacity: 0.7, strokeWeight: 6, lineCap: 'round' }} />
-              <Polyline path={trimmedRoute} options={{ strokeColor: '#bef264', strokeOpacity: 1, strokeWeight: 2, lineCap: 'round' }} />
-            </>
-          )}
-        </GoogleMap>
+            {/* Route polyline — 3 layers like delivery app */}
+            {trimmedRoute.length > 0 && (
+              <>
+                <Polyline path={trimmedRoute} options={{ strokeColor: '#000000', strokeOpacity: 0.1, strokeWeight: 8, lineCap: 'round' }} />
+                <Polyline path={trimmedRoute} options={{ strokeColor: '#0c831f', strokeOpacity: 0.7, strokeWeight: 6, lineCap: 'round' }} />
+                <Polyline path={trimmedRoute} options={{ strokeColor: '#bef264', strokeOpacity: 1, strokeWeight: 2, lineCap: 'round' }} />
+              </>
+            )}
+          </GoogleMap>
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 dark:bg-zinc-900 p-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-3">
+              <AlertCircle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+            </div>
+            <h3 className="text-sm font-black uppercase tracking-wider text-gray-900 dark:text-white">Map View Offline</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs mt-1 font-medium">
+              Live map preview is currently unavailable. Your delivery status, PIN, and driver contact are active below.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ── Top Bar ── */}

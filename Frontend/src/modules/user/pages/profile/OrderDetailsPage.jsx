@@ -370,7 +370,7 @@ const OrderDetailsPage = () => {
                         </div>
                     )}
 
-                    {rawOrder?.deliveryPartnerId && (rawOrder?.deliveryRunId || rawOrder?.deliveryPartnerId) && !['delivered', 'cancelled', 'returned', 'return_requested', 'return_pickup_scheduled', 'return_pickup_out'].includes(order.status) && (
+                    {!['delivered', 'cancelled', 'returned', 'return_requested', 'return_pickup_scheduled', 'return_pickup_out', 'failed'].includes(order.status) && (
                         <div
                             role="button"
                             onClick={() => navigate(`/orders/${order.id}/tracking`)}

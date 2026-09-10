@@ -1486,14 +1486,14 @@ export const getOrderById = async (req, res) => {
       order = await Order.findById(id)
         .populate('user', 'name email phone')
         .populate('items.product', 'name category image unitValue unitType branchStocks stock lowStockThreshold')
-        .populate('deliveryPartnerId', 'name phone profileImage vehicleType vehicleNumber')
+        .populate('deliveryPartnerId', 'name phone profileImage vehicleType vehicleNumber currentLocation locationUpdatedAt currentHeading')
         .populate('branchId', 'name address location')
         .populate('vendor', 'storeName address location');
     } else {
       order = await Order.findOne({ orderId: id })
         .populate('user', 'name email phone')
         .populate('items.product', 'name category image unitValue unitType branchStocks stock lowStockThreshold')
-        .populate('deliveryPartnerId', 'name phone profileImage vehicleType vehicleNumber')
+        .populate('deliveryPartnerId', 'name phone profileImage vehicleType vehicleNumber currentLocation locationUpdatedAt currentHeading')
         .populate('branchId', 'name address location')
         .populate('vendor', 'storeName address location');
     }

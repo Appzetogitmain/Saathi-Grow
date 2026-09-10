@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, ShoppingBag, Package, ChevronRight, Clock, Loader2 } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Package, ChevronRight, Clock, Loader2, Navigation } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import * as orderApi from '../../api/orderApi';
@@ -49,6 +49,7 @@ const OrdersPage = () => {
                         id: o._id,
                         orderId: o.orderId,
                         status: displayStatus,
+                        rawStatus: o.status,
                         date: formattedDate,
                         amount: '₹' + o.totalAmount.toFixed(2),
                         items: o.items.map((item, idx) => {
@@ -117,8 +118,24 @@ const OrdersPage = () => {
                                         </div>
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
-                                        <div className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-full md:rounded-lg !text-[8px] md:!text-[10px] font-black uppercase tracking-widest border border-current bg-opacity-10 ${order.color}`}>
-                                            {order.status}
+                                        <div className="flex items-center gap-2">
+                                            {/* Track Action for Active Orders */}
+                                            {!['delivered', 'cancelled', 'returned', 'return_requested', 'return_pickup_scheduled', 'return_pickup_out', 'failed'].includes((order.rawStatus || order.status || '').toLowerCase()) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/orders/${order.id}/tracking`);
+                                                    }}
+                                                    className="px-2.5 py-1 bg-[#0c831f] hover:bg-[#0a6b19] text-white rounded-full md:rounded-lg !text-[8px] md:!text-[10px] font-black uppercase tracking-widest shadow-sm flex items-center gap-1 active:scale-95 transition-all"
+                                                >
+                                                    <Navigation size={9} className="fill-current" />
+                                                    Track
+                                                </button>
+                                            )}
+                                            <div className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-full md:rounded-lg !text-[8px] md:!text-[10px] font-black uppercase tracking-widest border border-current bg-opacity-10 ${order.color}`}>
+                                                {order.status}
+                                            </div>
                                         </div>
                                         {/* Delivery OTP Flow */}
                                         {order.deliveryOTP && !['delivered', 'cancelled', 'returned', 'return_requested', 'return_pickup_scheduled', 'return_pickup_out'].includes(order.status) && (

@@ -32,12 +32,17 @@ const DeliveryLayout = ({ children }) => {
     } = useNotifications();
     const profile = useDeliveryStore(state => state.profile);
     const token = useDeliveryStore(state => state.token);
+    const orders = useDeliveryStore(state => state.orders);
     const logout = useDeliveryStore(state => state.logout);
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
     const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
-    const activeRunId = location.pathname.match(/\/delivery\/run\/([^/]+)/)?.[1] || null;
+    const activeRunFromUrl = location.pathname.match(/\/delivery\/(?:run|tracking)\/([^/]+)/)?.[1];
+    const activeRunFromStore = orders?.find?.(r => r.status === 'assigned' || r.status === 'in_progress')?._id;
+    const activeRunId = activeRunFromUrl || activeRunFromStore || null;
     useLocationTracking(token, Boolean(token && profile?.dutyStatus === 'Online'), activeRunId);
+
     const notificationPanelRef = useRef(null);
+
     useEffect(() => {
         let timeoutId;
         const MIN_KEYBOARD_HEIGHT = 150;

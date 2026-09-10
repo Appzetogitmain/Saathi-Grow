@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import useDeliveryStore from '../store/deliveryStore';
 import { db } from '../../../config/firebase';
 import { ref, update } from 'firebase/database';
@@ -18,6 +18,7 @@ const calculateBearing = (lat1, lon1, lat2, lon2) => {
 const useLocationTracking = (token, isActive, activeOrderId = null) => {
     const updateLocation = useDeliveryStore((state) => state.updateLocation);
     const setLocalLocation = useDeliveryStore((state) => state.setLocalLocation);
+    const profile = useDeliveryStore((state) => state.profile);
     const prevLocation = useRef(null);
     const lastDbUpdateTime = useRef(0);
     const wakeLock = useRef(null);
@@ -68,15 +69,20 @@ const useLocationTracking = (token, isActive, activeOrderId = null) => {
                             lastDbUpdateTime.current = now;
                         }
 
-                        if (activeOrderId) {
+                        if (activeOrderId || profile?._id) {
                             // Firebase RTDB handles high-frequency updates efficiently
-                            const trackingRef = ref(db, `active_trackings/${activeOrderId}`);
-                            update(trackingRef, {
+                            const trackingPayload = {
                                 location: { lat: latitude, lng: longitude },
                                 heading: heading,
                                 speed: speed || 0,
                                 updatedAt: now
-                            }).catch(e => console.error("Firebase update failed", e));
+                            };
+                            if (activeOrderId) {
+                                update(ref(db, `active_trackings/${activeOrderId}`), trackingPayload).catch(e => console.error("Firebase update failed", e));
+                            }
+                            if (profile?._id && profile._id !== activeOrderId) {
+                                update(ref(db, `active_trackings/${profile._id}`), trackingPayload).catch(() => {});
+                            }
                         }
                     },
                     (error) => {
@@ -97,7 +103,7 @@ const useLocationTracking = (token, isActive, activeOrderId = null) => {
             if (watchId) navigator.geolocation.clearWatch(watchId);
             releaseWakeLock();
         };
-    }, [isActive, token, updateLocation, setLocalLocation, activeOrderId]);
+    }, [isActive, token, updateLocation, setLocalLocation, activeOrderId, profile?._id]);
 };
 
 export default useLocationTracking;
