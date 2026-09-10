@@ -67,8 +67,18 @@ const LocationPermissionModal = () => {
     };
 
     const handleEnterManually = () => {
+        try {
+            sessionStorage.setItem('saathigro_location_permission_prompted', 'true');
+        } catch {}
         setShowPermissionModal(false);
         setShowLocationModal(true);
+    };
+
+    const handleClose = () => {
+        try {
+            sessionStorage.setItem('saathigro_location_permission_prompted', 'true');
+        } catch {}
+        setShowPermissionModal(false);
     };
 
     return (
@@ -76,14 +86,14 @@ const LocationPermissionModal = () => {
             {/* Backdrop */}
             <div 
                 className="absolute inset-0 bg-black/60 backdrop-blur-[2px] transition-opacity"
-                onClick={() => setShowPermissionModal(false)}
+                onClick={handleClose}
             />
 
             {/* Modal Card */}
             <div className="bg-white dark:bg-[#111111] w-full max-w-[360px] relative z-10 overflow-hidden rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/20 dark:border-white/5 p-6 flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
                 {/* Close Button */}
                 <button
-                    onClick={() => setShowPermissionModal(false)}
+                    onClick={handleClose}
                     className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors"
                     aria-label="Close"
                 >

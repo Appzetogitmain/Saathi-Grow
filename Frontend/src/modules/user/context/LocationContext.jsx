@@ -140,6 +140,25 @@ export const LocationProvider = ({ children }) => {
                     // The backend stores: { _id, label, street, city, state, zipCode, isDefault }
                     const formatted = data.map(mapAddressFromApi);
                     setSavedAddresses(formatted);
+
+                    // If user has saved addresses and current location is unselected, auto-select default address
+                    const hasLocation = Boolean(
+                        location?.coordinates?.length === 2 ||
+                        (location?.address && location.address !== 'Select Location')
+                    );
+                    if (!hasLocation && formatted.length > 0) {
+                        const defaultAddr = formatted.find(a => a.isDefault) || formatted[0];
+                        if (defaultAddr) {
+                            setLocation({
+                                address: defaultAddr.address || defaultAddr.fullAddress || 'Saved Address',
+                                city: defaultAddr.city || 'Indore',
+                                state: defaultAddr.state || '',
+                                zipCode: defaultAddr.zipCode || '',
+                                coordinates: defaultAddr.coordinates,
+                                fullAddress: defaultAddr.fullAddress
+                            });
+                        }
+                    }
                 } catch (err) {
                     console.error('Failed to fetch user addresses:', err);
                 }
@@ -160,16 +179,25 @@ export const LocationProvider = ({ children }) => {
         }
     }, [savedAddresses, token]);
 
-    // Automatically prompt for location permission modal when user logs in
+    // Automatically prompt for location permission modal ONLY if user has no location set yet
     useEffect(() => {
         if (token) {
-            // Small timeout to ensure LoginModal is fully closed before LocationPermissionModal opens
-            const timer = setTimeout(() => {
-                setShowPermissionModal(true);
-            }, 600);
-            return () => clearTimeout(timer);
+            const hasLocation = Boolean(
+                location?.coordinates?.length === 2 ||
+                (location?.address && location.address !== 'Select Location')
+            );
+            const alreadyPrompted = sessionStorage.getItem('saathigro_location_permission_prompted');
+
+            // If user already gave location or selected an address, NEVER prompt on reopen
+            if (!hasLocation && !alreadyPrompted) {
+                sessionStorage.setItem('saathigro_location_permission_prompted', 'true');
+                const timer = setTimeout(() => {
+                    setShowPermissionModal(true);
+                }, 600);
+                return () => clearTimeout(timer);
+            }
         }
-    }, [token]);
+    }, [token, location]);
 
     const updateLocation = (newLocation) => {
         setLocation(newLocation);
