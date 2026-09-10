@@ -11,7 +11,7 @@ import { getStoredReferralCode } from '../../utils/referralUtils';
 const LoginModal = () => {
     const navigate = useNavigate();
     const { showLoginModal, closeLoginModal, login, register, loginView, setLoginView } = useAuth();
-    const { openLocationModal } = useLocation();
+    const { location, openLocationModal } = useLocation();
 
     const handleClose = () => {
         closeLoginModal();
@@ -98,10 +98,16 @@ const LoginModal = () => {
             setOtp('');
             setShowOTP(false);
             
-            // Ask for location immediately after login/register
-            setTimeout(() => {
-                openLocationModal();
-            }, 500);
+            // Ask for location immediately after login/register ONLY if not already selected
+            const hasLocation = Boolean(
+                location?.coordinates?.length === 2 ||
+                (location?.address && location.address !== 'Select Location')
+            );
+            if (!hasLocation) {
+                setTimeout(() => {
+                    openLocationModal();
+                }, 500);
+            }
         }
     };
 
