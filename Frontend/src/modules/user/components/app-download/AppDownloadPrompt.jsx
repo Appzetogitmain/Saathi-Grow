@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Smartphone, Zap, Sparkles, MapPin, ArrowRight, QrCode, Star } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import { isWebView } from '../../../../utils/deviceUtils';
+import { isWebView, isInstalledApp } from '../../../../utils/deviceUtils';
 import { useShop } from '../../context/ShopContext';
 import appLogo from '../../../../assets/logo_fav.png';
 
@@ -25,10 +25,10 @@ export default function AppDownloadPrompt() {
     return suppressedPrefixes.some(path => location.pathname.startsWith(path)) || location.pathname.includes('/tracking');
   }, [location.pathname]);
 
-  // If already running inside WebView / APK, do not display prompt
+  // If already running inside WebView / APK / PWA / Installed Web App, do not display prompt
   const isInApp = useMemo(() => {
     try {
-      return isWebView();
+      return isInstalledApp() || isWebView();
     } catch {
       return false;
     }
@@ -85,6 +85,22 @@ export default function AppDownloadPrompt() {
       setShowPill(true);
     }
   }, [isInApp]);
+
+  // Listen for native PWA installation event to immediately dismiss and persist
+  useEffect(() => {
+    const handleAppInstalled = () => {
+      try {
+        localStorage.setItem('saathigro_app_installed', 'true');
+      } catch {
+        // ignore storage errors
+      }
+      setShowModal(false);
+      setShowPill(false);
+    };
+
+    window.addEventListener('appinstalled', handleAppInstalled);
+    return () => window.removeEventListener('appinstalled', handleAppInstalled);
+  }, []);
 
   if (isInApp || isSuppressedRoute) return null;
 
