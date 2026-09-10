@@ -12,6 +12,7 @@ import LocationPermissionModal from '../components/location/LocationPermissionMo
 import FloatingCartStrip from '../components/cart/FloatingCartStrip';
 import MobileFooter from '../components/layout/MobileFooter';
 import SearchOverlay from '../components/search/SearchOverlay';
+import AppDownloadPrompt from '../components/app-download/AppDownloadPrompt';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation as useUserLocation } from '../context/LocationContext';
 import { ShopProvider, useShop, useShopUI } from '../context/ShopContext';
@@ -68,6 +69,7 @@ const LegalPage = lazy(() => import('../pages/support/LegalPage'));
 const ShopListingPage = lazy(() => import('../pages/shop/ShopListingPage'));
 const PublicPrivacyPolicy = lazy(() => import('../pages/support/PublicPrivacyPolicy'));
 const PublicUserSupport = lazy(() => import('../pages/support/PublicUserSupport'));
+const AppDownloadRedirectPage = lazy(() => import('../pages/app/AppDownloadRedirectPage'));
 
 
 
@@ -362,6 +364,7 @@ const UserLayout = () => {
             <FloatingCartStrip />
             <LoginModal />
             <SearchOverlay />
+            <AppDownloadPrompt />
 
             <main className={`flex-grow bg-white dark:!bg-black transition-colors duration-300 w-full max-w-full ${hideDesktopChrome ? '' : 'pb-20 md:pb-0'} ${shouldAddPadding ? 'extra-mobile-padding' : ''}`}>
                 {shouldShowServiceUnavailable ? (
@@ -504,6 +507,8 @@ const UserRoutes = () => {
                         <Route path="/logout-confirmation" element={<LogoutConfirmationPage />} />
                     </Route>
                     <Route path="/privacy-policy" element={<PublicPrivacyPolicy />} />
+                    <Route path="/download-app" element={<AppDownloadRedirectPage />} />
+                    <Route path="/app" element={<AppDownloadRedirectPage />} />
                 </Routes>
             </Suspense>
         </ShopProvider>
