@@ -22,6 +22,10 @@ const SEO = ({
   const siteName = "Saathi-Grow";
   const fullTitle = title ? `${title} | ${siteName}` : siteName;
   const canonicalUrl = url || window.location.href;
+  // Ensure og:image is always an absolute URL (required for WhatsApp / social crawlers)
+  const absoluteImage = image
+    ? (image.startsWith('http') ? image : `${window.location.origin}${image.startsWith('/') ? '' : '/'}${image}`)
+    : `${window.location.origin}/favicon.png`;
 
   return (
     <Helmet>
@@ -42,7 +46,9 @@ const SEO = ({
       <meta property="og:type" content={type} />
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
-      <meta property="og:image" content={image} />
+      <meta property="og:image" content={absoluteImage} />
+      <meta property="og:image:width" content="800" />
+      <meta property="og:image:height" content="800" />
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:site_name" content={siteName} />
 
@@ -50,7 +56,7 @@ const SEO = ({
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
-      <meta name="twitter:image" content={image} />
+      <meta name="twitter:image" content={absoluteImage} />
 
       {/* Theme Color */}
       <meta name="theme-color" content="#2e7d32" />

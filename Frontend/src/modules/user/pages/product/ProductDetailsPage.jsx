@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { fetchProductById, fetchProducts, logDemandRequest, fetchProductReviews, submitProductReview } from '../../api/shopApi';
 import { useCart } from '../../context/CartContext';
-import { Minus, Plus, ChevronRight, ChevronLeft, Star, ShoppingCart, Sparkles, TrendingUp, AlertCircle, Bell, MapPin } from 'lucide-react';
+import { Minus, Plus, ChevronRight, ChevronLeft, Star, ShoppingCart, Sparkles, TrendingUp, AlertCircle, Bell, MapPin, Share2 } from 'lucide-react';
 import { ProductDetailSkeleton } from '../../components/common/Skeleton';
 import FadeImage from '../../components/common/FadeImage';
 import ProductCard from '../../components/product/ProductCard';
@@ -249,6 +249,29 @@ const ProductDetailsPage = () => {
             toast.error(err.message || "Failed to submit review");
         } finally {
             setIsSubmittingReview(false);
+        }
+    };
+
+    const handleShare = () => {
+        const productUrl = window.location.href;
+        const discount = product.mrp && product.mrp > activePrice
+            ? Math.round(((product.mrp - activePrice) / product.mrp) * 100)
+            : 0;
+        const priceText = discount > 0
+            ? `₹${activePrice} (${discount}% OFF from ₹${product.mrp})`
+            : `₹${activePrice}`;
+        const text = `🛒 *${product.name}*\n💰 ${priceText}\n\n👉 ${productUrl}\n\nOrder fresh groceries at your doorstep via *SaathiGro*!`;
+
+        // Use native Web Share API on mobile (shows WhatsApp + all share targets)
+        if (navigator.share) {
+            navigator.share({
+                title: product.name,
+                text: `${product.name} – ${priceText} on SaathiGro`,
+                url: productUrl,
+            }).catch(() => {}); // silently ignore if user cancels
+        } else {
+            // Desktop fallback: open WhatsApp directly
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
         }
     };
 
@@ -566,6 +589,16 @@ const ProductDetailsPage = () => {
                                         )}
                                     </button>
                                 )}
+
+                                {/* WhatsApp Share Button */}
+                                <button
+                                    onClick={handleShare}
+                                    title="Share on WhatsApp"
+                                    aria-label="Share on WhatsApp"
+                                    className="w-12 h-12 shrink-0 flex items-center justify-center !rounded-full transition-all border border-[#25D366]/30 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white hover:border-[#25D366] active:scale-90 shadow-sm"
+                                >
+                                    <Share2 size={18} />
+                                </button>
                             </div>
                         </div>
 
