@@ -10,8 +10,10 @@ import Notification from '../models/Notification.js';
 const sentCache = new Map();
 const CACHE_TTL = 10000; // 10 seconds
 
+const BASE_CLIENT_URL = process.env.CLIENT_URL || 'https://saathigro.in';
+
 const buildDeepLink = (recipientModel, data = {}) => {
-  const baseUrl = process.env.CLIENT_URL || 'https://saathi-grow-8oyg.vercel.app';
+  const baseUrl = BASE_CLIENT_URL;
   const orderId = data?.orderId;
   const ticketId = data?.ticketId;
 
@@ -105,6 +107,10 @@ export const sendPushNotification = async (recipientId, recipientModel, notifica
           ...Object.fromEntries(
             Object.entries(data).map(([k, v]) => [k, String(v)])
           ),
+          title: notification.title,
+          body: notification.body,
+          icon: `${BASE_CLIENT_URL}/assets/logo_fav.png`,
+          badge: `${BASE_CLIENT_URL}/assets/logo_fav.png`,
           link: deepLink,
           click_action: 'FLUTTER_NOTIFICATION_CLICK',
         },
@@ -116,8 +122,8 @@ export const sendPushNotification = async (recipientId, recipientModel, notifica
           notification: {
             title: notification.title,
             body: notification.body,
-            icon: '/favicon.png',
-            badge: '/favicon.png',
+            icon: `${BASE_CLIENT_URL}/assets/logo_fav.png`,
+            badge: `${BASE_CLIENT_URL}/assets/logo_fav.png`,
             requireInteraction: true, // Keep notification until user clicks or dismisses it
             vibrate: [200, 100, 200, 100, 200, 100, 200],
           },
