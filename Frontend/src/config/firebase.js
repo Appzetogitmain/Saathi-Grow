@@ -4,14 +4,14 @@ import { getDatabase } from "firebase/database";
 import { getMessaging, getToken, onMessage } from "firebase/messaging"; // for web push
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyC75GkUogpq7NA2JYKmnFcBPvhtqSNdWqI",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "saathigro-ea378.firebaseapp.com",
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://saathigro-ea378-default-rtdb.firebaseio.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "saathigro-ea378",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "saathigro-ea378.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "730414099137",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:730414099137:web:93d03d9d73ed01f25b4240",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-WHGN82T3LV"
 };
 
 // Initialize Firebase

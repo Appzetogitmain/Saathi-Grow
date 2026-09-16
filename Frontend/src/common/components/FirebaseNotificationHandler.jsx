@@ -65,24 +65,36 @@ const FirebaseNotificationHandler = ({ token, role, isApp = false, showToast = f
       const title = payload.notification?.title || payload.data?.title || 'New Notification';
       const body = payload.notification?.body || payload.data?.body || '';
 
-      // Trigger native desktop notification in foreground if permission is granted
+      // Trigger native notification in foreground if permission is granted (uses ServiceWorker on mobile)
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         try {
-          const nativeNotification = new Notification(title, {
-            body: body,
-            icon: '/favicon.png',
-            badge: '/favicon.png',
-            tag: payload.data?.runId || payload.data?.orderId || undefined,
-            requireInteraction: ['assignment', 'run_assignment', 'return_batch'].includes(payload.data?.type)
-          });
-          nativeNotification.onclick = () => {
-            const target = resolveNotificationLink(payload.data || {});
-            if (target.startsWith('http')) {
-              window.location.href = target;
-              return;
-            }
-            window.location.href = `${window.location.origin}${target}`;
-          };
+          if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.ready.then((reg) => {
+              reg.showNotification(title, {
+                body: body,
+                icon: '/favicon.png',
+                badge: '/favicon.png',
+                tag: payload.data?.runId || payload.data?.orderId || undefined,
+                data: payload.data || {}
+              });
+            }).catch(() => {});
+          } else {
+            const nativeNotification = new Notification(title, {
+              body: body,
+              icon: '/favicon.png',
+              badge: '/favicon.png',
+              tag: payload.data?.runId || payload.data?.orderId || undefined,
+              requireInteraction: ['assignment', 'run_assignment', 'return_batch'].includes(payload.data?.type)
+            });
+            nativeNotification.onclick = () => {
+              const target = resolveNotificationLink(payload.data || {});
+              if (target.startsWith('http')) {
+                window.location.href = target;
+                return;
+              }
+              window.location.href = `${window.location.origin}${target}`;
+            };
+          }
         } catch (e) {
           console.error('Error displaying native foreground notification:', e);
         }
