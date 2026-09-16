@@ -24,6 +24,13 @@ const FirebaseNotificationHandler = ({ token, role, isApp = false, showToast = f
       if (!token) return;
 
       try {
+        // Force update any existing Service Worker registration to get latest click handler
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then((regs) => {
+            regs.forEach((reg) => reg.update());
+          }).catch(() => {});
+        }
+
         // 1. Get FCM Token
         const fcmToken = await generateToken();
         if (fcmToken) {
