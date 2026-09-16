@@ -17,20 +17,35 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
+// Activate new service worker immediately
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim());
+});
+
 messaging.onBackgroundMessage((payload) => {
   console.log('[SW] Background message received:', payload);
 
-  // ✅ Safe fallbacks — handles both notification + data-only payloads
   const title =
     payload.notification?.title ||
     payload.data?.title ||
     'SaathiGro';
 
+  const origin = self.location.origin;
+  const defaultIcon = `${origin}/assets/logo_fav.png`;
+
   const options = {
     body: payload.notification?.body || payload.data?.body || '',
-    icon: '/favicon.png',
-    badge: '/favicon.png',
-    data: payload.data || {},
+    icon: payload.notification?.icon || payload.data?.icon || defaultIcon,
+    badge: payload.notification?.badge || payload.data?.badge || defaultIcon,
+    vibrate: [200, 100, 200],
+    data: {
+      ...payload.data,
+      clickUrl: payload.fcmOptions?.link || payload.data?.link || payload.data?.url || `${origin}/`
+    },
   };
 
   self.registration.showNotification(title, options);
@@ -41,26 +56,45 @@ self.addEventListener('notificationclick', (event) => {
 
   const data = event.notification?.data || {};
   const origin = self.location.origin;
-  const fallbackUrl = `${origin}/notifications`;
+  let targetUrl = data.clickUrl || data.link || data.url || `${origin}/`;
 
-  let targetUrl = data.link || data.url || '';
-  if (!targetUrl && data.orderId) {
+  if (!data.clickUrl && data.orderId) {
     targetUrl = `${origin}/orders/${data.orderId}`;
   }
-  if (!targetUrl) targetUrl = fallbackUrl;
+
+  // If link points to outdated Vercel domain, rewrite to current origin
+  if (targetUrl.includes('vercel.app')) {
+    try {
+      const parsed = new URL(targetUrl);
+      targetUrl = `${origin}${parsed.pathname}${parsed.search}`;
+    } catch {
+      targetUrl = `${origin}/`;
+    }
+  }
 
   event.waitUntil((async () => {
     const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
-    const sameOriginClient = allClients.find((c) => c.url.startsWith(origin));
+    
+    // Check if an existing tab or installed PWA window is already open on this origin
+    const existingClient = allClients.find((c) => {
+      try {
+        return new URL(c.url).origin === origin;
+      } catch {
+        return false;
+      }
+    });
 
-    if (sameOriginClient) {
-      await sameOriginClient.focus();
-      if ('navigate' in sameOriginClient) {
-        return sameOriginClient.navigate(targetUrl);
+    if (existingClient) {
+      await existingClient.focus();
+      if ('navigate' in existingClient && existingClient.url !== targetUrl) {
+        return existingClient.navigate(targetUrl);
       }
       return;
     }
 
-    await clients.openWindow(targetUrl);
+    // No window open: open targetUrl (which launches the installed PWA on Android)
+    if (clients.openWindow) {
+      return clients.openWindow(targetUrl);
+    }
   })());
 });
