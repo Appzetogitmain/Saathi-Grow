@@ -102,6 +102,7 @@ export const sendPushNotification = async (recipientId, recipientModel, notifica
         notification: {
           title: notification.title,
           body: notification.body,
+          imageUrl: `${BASE_CLIENT_URL}/assets/logo_fav.png`,
         },
         data: {
           ...Object.fromEntries(
@@ -112,7 +113,8 @@ export const sendPushNotification = async (recipientId, recipientModel, notifica
           icon: `${BASE_CLIENT_URL}/assets/logo_fav.png`,
           badge: `${BASE_CLIENT_URL}/assets/logo_fav.png`,
           link: deepLink,
-          click_action: 'FLUTTER_NOTIFICATION_CLICK',
+          url: deepLink,
+          click_action: deepLink,
         },
         // ✅ Web push config (Windows Notification Center + browser)
         webpush: {
@@ -136,10 +138,11 @@ export const sendPushNotification = async (recipientId, recipientModel, notifica
           priority: 'high',
           notification: {
             sound: 'default',
-            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
             channelId: 'high_importance_channel',
             priority: 'high',
             visibility: 'public',
+            defaultSound: true,
+            defaultVibrateTimings: true,
           },
         },
         // ✅ iOS config
