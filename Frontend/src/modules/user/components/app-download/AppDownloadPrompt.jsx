@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Smartphone, Zap, Sparkles, MapPin, ArrowRight, QrCode, Star } from 'lucide-react';
+import { X, Smartphone, Zap, Sparkles, MapPin, ArrowRight, QrCode, Star, ExternalLink } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { isWebView, isInstalledApp } from '../../../../utils/deviceUtils';
 import { useShop } from '../../context/ShopContext';
 import appLogo from '../../../../assets/logo_fav.png';
 
 const MODAL_DISMISS_KEY = 'saathigro_app_modal_dismissed_at';
-const PILL_DISMISS_KEY = 'saathigro_app_pill_dismissed_session';
+const PILL_DISMISS_KEY  = 'saathigro_app_pill_dismissed_session';
+const APP_INSTALLED_KEY = 'saathigro_app_installed';
 const DISMISS_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export default function AppDownloadPrompt() {
@@ -18,6 +19,10 @@ export default function AppDownloadPrompt() {
   const [showModal, setShowModal] = useState(false);
   const [showPill, setShowPill] = useState(false);
   const [platform, setPlatform] = useState('desktop'); // 'android' | 'ios' | 'desktop'
+  // True when the user has previously installed the PWA via browser prompt
+  const [isPwaInstalled, setIsPwaInstalled] = useState(() => {
+    try { return localStorage.getItem(APP_INSTALLED_KEY) === 'true'; } catch { return false; }
+  });
 
   // Suppress during checkout, auth, order-success, or live tracking flows
   const isSuppressedRoute = useMemo(() => {
@@ -90,10 +95,11 @@ export default function AppDownloadPrompt() {
   useEffect(() => {
     const handleAppInstalled = () => {
       try {
-        localStorage.setItem('saathigro_app_installed', 'true');
+        localStorage.setItem(APP_INSTALLED_KEY, 'true');
       } catch {
         // ignore storage errors
       }
+      setIsPwaInstalled(true);
       setShowModal(false);
       setShowPill(false);
     };
@@ -122,6 +128,10 @@ export default function AppDownloadPrompt() {
   };
 
   const handlePillClick = () => {
+    if (isPwaInstalled) {
+      handleOpenApp();
+      return;
+    }
     if (platform === 'desktop') {
       // On desktop, re-open modal to show QR codes
       setShowModal(true);
@@ -129,6 +139,11 @@ export default function AppDownloadPrompt() {
       // On mobile, navigate straight to store
       window.open(primaryDownloadUrl, '_blank', 'noopener,noreferrer');
     }
+  };
+
+  // Navigate to the app root — Chrome on Android routes this to the installed PWA
+  const handleOpenApp = () => {
+    window.location.href = window.location.origin + '/';
   };
 
   return (
@@ -282,32 +297,48 @@ export default function AppDownloadPrompt() {
                     </div>
                   </div>
                 ) : (
-                  /* MOBILE VIEW (ANDROID / IOS): 1-TAP DOWNLOAD BUTTON */
+                  /* MOBILE VIEW (ANDROID / IOS): 1-TAP BUTTON */
                   <div className="mb-5 space-y-2.5">
-                    <a
-                      href={primaryDownloadUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-2xl bg-[#0c831f] hover:bg-[#0a701a] text-white text-sm font-bold shadow-lg shadow-emerald-700/25 transition-all active:scale-[0.98]"
-                    >
-                      <Smartphone size={18} />
-                      <span>
-                        {platform === 'ios'
-                          ? (appStoreUrl ? 'Download on App Store' : 'Get SaathiGro App')
-                          : 'Download on Google Play'}
-                      </span>
-                      <ArrowRight size={16} />
-                    </a>
-
-                    {platform === 'android' && appStoreUrl && (
-                      <a
-                        href={appStoreUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition"
+                    {isPwaInstalled ? (
+                      /* App already installed — offer to open it */
+                      <button
+                        type="button"
+                        onClick={handleOpenApp}
+                        className="w-full flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-2xl bg-[#0c831f] hover:bg-[#0a701a] text-white text-sm font-bold shadow-lg shadow-emerald-700/25 transition-all active:scale-[0.98]"
                       >
-                        Also available on iOS App Store
-                      </a>
+                        <ExternalLink size={18} />
+                        <span>Open SaathiGro App</span>
+                        <ArrowRight size={16} />
+                      </button>
+                    ) : (
+                      /* App not yet installed — show download button */
+                      <>
+                        <a
+                          href={primaryDownloadUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-2xl bg-[#0c831f] hover:bg-[#0a701a] text-white text-sm font-bold shadow-lg shadow-emerald-700/25 transition-all active:scale-[0.98]"
+                        >
+                          <Smartphone size={18} />
+                          <span>
+                            {platform === 'ios'
+                              ? (appStoreUrl ? 'Download on App Store' : 'Get SaathiGro App')
+                              : 'Download on Google Play'}
+                          </span>
+                          <ArrowRight size={16} />
+                        </a>
+
+                        {platform === 'android' && appStoreUrl && (
+                          <a
+                            href={appStoreUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition"
+                          >
+                            Also available on iOS App Store
+                          </a>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -353,13 +384,17 @@ export default function AppDownloadPrompt() {
                   SaathiGro App
                 </span>
                 <span className="text-[9px] text-slate-300 font-medium leading-tight">
-                  {platform === 'desktop' ? 'Scan & Install' : '10-Min Delivery'}
+                  {isPwaInstalled ? 'Tap to open app' : (platform === 'desktop' ? 'Scan & Install' : '10-Min Delivery')}
                 </span>
               </div>
 
               {/* CTA Badge */}
               <div className="ml-1 bg-[#0c831f] hover:bg-[#0a701a] text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 transition">
-                {platform === 'desktop' ? (
+                {isPwaInstalled ? (
+                  <>
+                    <ExternalLink size={11} /> Open App
+                  </>
+                ) : platform === 'desktop' ? (
                   <>
                     <QrCode size={11} /> Scan
                   </>
