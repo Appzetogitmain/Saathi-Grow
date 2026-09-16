@@ -178,6 +178,7 @@ import userProfileRoutes from './routes/userProfileRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import adminCategoryPageRoutes from './routes/adminCategoryPageRoutes.js';
 import physicalLocationRoutes from './routes/physicalLocationRoutes.js';
+import ogRoutes from './routes/ogRoutes.js';
 import { protect, protectAdmin, protectVendor, protectDeliveryPartner } from './middleware/authMiddleware.js';
 
 
@@ -224,6 +225,9 @@ app.use('/api/user/category-pages', categoryPageRoutes);
 app.use('/api/demand', demandRoutes);
 app.use('/api/faqs', faqRoutes);
 app.use('/api/pos', posRoutes);
+
+// OG / Social crawler meta-tag route (Nginx proxies crawler UAs here)
+app.use('/api/og', ogRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
