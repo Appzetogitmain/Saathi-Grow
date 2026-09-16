@@ -230,7 +230,7 @@ export const adminSendNotification = async (req, res) => {
         notifyAdmins({ title, body }, { type: 'admin_broadcast' });
       }
     } else {
-      sendPushNotification(recipientId, finalRecipientModel, { title, body }, { type: 'individual' }, true);
+      await sendPushNotification(recipientId, finalRecipientModel, { title, body }, { type: 'individual' }, true);
     }
 
     res.status(200).json({ success: true, message: 'Notification processed', record });
