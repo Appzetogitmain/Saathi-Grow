@@ -8,6 +8,7 @@ const LocationModal = () => {
     const [searchText, setSearchText] = useState('');
     const [detecting, setDetecting] = useState(false);
     const [placeSuggestions, setPlaceSuggestions] = useState([]);
+    const [locationError, setLocationError] = useState(null);
     const searchRef = useRef(null);
     const autocompleteServiceRef = useRef(null);
     const placesServiceRef = useRef(null);
@@ -131,6 +132,7 @@ const LocationModal = () => {
 
     const handleDetectLocation = () => {
         setDetecting(true);
+        setLocationError(null);
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
@@ -147,24 +149,39 @@ const LocationModal = () => {
                         fullAddress: geoData?.address
                     }, true);
                     setDetecting(false);
+                    setLocationError(null);
                 },
                 (error) => {
                     setDetecting(false);
                     if (error.code === 1) {
+                        setLocationError({
+                            title: "Location Permission Blocked",
+                            message: "Please turn on Location and allow access in your browser settings, then tap Detect again."
+                        });
                         toast.error("Please turn on Location and allow access in your browser settings.", {
                             autoClose: 5000
                         });
                     } else if (error.code === 2) {
+                        setLocationError({
+                            title: "Device GPS is Turned Off",
+                            message: "Please swipe down your notification panel, turn ON Location, and tap Detect again."
+                        });
                         toast.error("📍 Device GPS is turned off. Please swipe down your notification panel, turn ON Location, and tap Detect again.", {
                             autoClose: 6000
                         });
-                        searchRef.current?.focus();
                     } else if (error.code === 3) {
+                        setLocationError({
+                            title: "Location Request Timed Out",
+                            message: "GPS satellite lock took too long. Please tap Detect again or choose your city below."
+                        });
                         toast.warn("Location request timed out. Please try again or select your city below.", {
                             autoClose: 5000
                         });
-                        searchRef.current?.focus();
                     } else {
+                        setLocationError({
+                            title: "Location Detection Failed",
+                            message: "Unable to retrieve your location. Please enter your address or select a city below."
+                        });
                         toast.error("Unable to retrieve your location. Please select your city or search address.", {
                             autoClose: 5000
                         });
@@ -177,6 +194,10 @@ const LocationModal = () => {
                 }
             );
         } else {
+            setLocationError({
+                title: "Geolocation Not Supported",
+                message: "Geolocation is not supported by this browser. Please select your city manually."
+            });
             toast.error('Geolocation is not supported by this browser. Please select your city manually.', {
                 autoClose: 5000
             });
@@ -289,6 +310,24 @@ const LocationModal = () => {
                             )}
                         </div>
                     </div>
+
+                    {/* In-Modal Alert Banner if GPS is off or detection failed */}
+                    {locationError && (
+                        <div className="mb-4 p-3.5 rounded-2xl bg-amber-50/95 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/70 flex items-start gap-3 text-xs text-amber-900 dark:text-amber-200 shadow-sm animate-in fade-in slide-in-from-top-1 shrink-0">
+                            <span className="text-lg leading-none shrink-0 mt-0.5">📍</span>
+                            <div className="flex-1 text-left">
+                                <p className="font-bold text-xs text-amber-950 dark:text-amber-100">{locationError.title}</p>
+                                <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-1 leading-relaxed">{locationError.message}</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setLocationError(null)}
+                                className="text-amber-600 hover:text-amber-800 dark:text-amber-400 p-1 shrink-0 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 transition"
+                            >
+                                <X size={15} />
+                            </button>
+                        </div>
+                    )}
 
                     {/* Content Area - Scrollable */}
                     <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1 scrollbar-hide">

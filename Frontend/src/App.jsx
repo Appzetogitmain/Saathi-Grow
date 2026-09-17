@@ -85,6 +85,7 @@ function App() {
                                                     pauseOnHover
                                                     theme="light"
                                                     toastClassName="premium-toast"
+                                                    style={{ zIndex: 99999 }}
                                                 />
                                             </Suspense>
                                         </ReturnRequestsProvider>
