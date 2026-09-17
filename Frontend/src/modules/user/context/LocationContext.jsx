@@ -303,7 +303,7 @@ export const LocationProvider = ({ children }) => {
                 },
                 {
                     enableHighAccuracy: false,
-                    timeout: 5000,
+                    timeout: 15000,
                     maximumAge: 300000
                 }
             );

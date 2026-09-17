@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, MapPin, Navigation as NavIcon, Search } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { useLocation } from '../../context/LocationContext';
 
 const LocationModal = () => {
@@ -148,17 +149,37 @@ const LocationModal = () => {
                     setDetecting(false);
                 },
                 (error) => {
-                    alert('Unable to retrieve your location');
                     setDetecting(false);
+                    if (error.code === 1) {
+                        toast.error("Please turn on Location and allow access in your browser settings.", {
+                            autoClose: 5000
+                        });
+                    } else if (error.code === 2) {
+                        toast.error("📍 Device GPS is turned off. Please swipe down your notification panel, turn ON Location, and tap Detect again.", {
+                            autoClose: 6000
+                        });
+                        searchRef.current?.focus();
+                    } else if (error.code === 3) {
+                        toast.warn("Location request timed out. Please try again or select your city below.", {
+                            autoClose: 5000
+                        });
+                        searchRef.current?.focus();
+                    } else {
+                        toast.error("Unable to retrieve your location. Please select your city or search address.", {
+                            autoClose: 5000
+                        });
+                    }
                 },
                 {
                     enableHighAccuracy: false,
-                    timeout: 5000,
+                    timeout: 15000,
                     maximumAge: 300000
                 }
             );
         } else {
-            alert('Geolocation is not supported by this browser.');
+            toast.error('Geolocation is not supported by this browser. Please select your city manually.', {
+                autoClose: 5000
+            });
             setDetecting(false);
         }
     };

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MapPin, X } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { useLocation } from '../../context/LocationContext';
 
 const LocationPermissionModal = () => {
@@ -46,20 +47,36 @@ const LocationPermissionModal = () => {
                 },
                 (error) => {
                     console.error('Location detection error:', error);
-                    alert('Unable to retrieve your location. Please enter it manually.');
                     setDetecting(false);
+                    if (error.code === 1) {
+                        toast.error("Please turn on Location and allow access in your browser settings.", {
+                            autoClose: 5000
+                        });
+                    } else if (error.code === 2) {
+                        toast.error("📍 Device GPS is turned off. Please swipe down your notification panel, turn ON Location, and tap Detect again.", {
+                            autoClose: 6000
+                        });
+                    } else if (error.code === 3) {
+                        toast.warn("Location request timed out. Please select your city below.", {
+                            autoClose: 5000
+                        });
+                    } else {
+                        toast.error("Unable to retrieve your location. Please enter it manually.", {
+                            autoClose: 5000
+                        });
+                    }
                     // Fallback to manual selection modal
                     setShowPermissionModal(false);
                     setShowLocationModal(true);
                 },
                 {
                     enableHighAccuracy: false,
-                    timeout: 5000,
+                    timeout: 15000,
                     maximumAge: 300000
                 }
             );
         } else {
-            alert('Geolocation is not supported by this browser.');
+            toast.error('Geolocation is not supported by this browser. Please select your city manually.');
             setDetecting(false);
             setShowPermissionModal(false);
             setShowLocationModal(true);
