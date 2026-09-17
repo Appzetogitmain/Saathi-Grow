@@ -52,13 +52,9 @@ const LocationPermissionModal = () => {
                         toast.error("Please turn on Location and allow access in your browser settings.", {
                             autoClose: 5000
                         });
-                    } else if (error.code === 2) {
+                    } else if (error.code === 2 || error.code === 3) {
                         toast.error("📍 Device GPS is turned off. Please swipe down your notification panel, turn ON Location, and tap Detect again.", {
                             autoClose: 6000
-                        });
-                    } else if (error.code === 3) {
-                        toast.warn("Location request timed out. Please select your city below.", {
-                            autoClose: 5000
                         });
                     } else {
                         toast.error("Unable to retrieve your location. Please enter it manually.", {
@@ -71,7 +67,7 @@ const LocationPermissionModal = () => {
                 },
                 {
                     enableHighAccuracy: false,
-                    timeout: 15000,
+                    timeout: 8000,
                     maximumAge: 300000
                 }
             );

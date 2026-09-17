@@ -161,21 +161,14 @@ const LocationModal = () => {
                         toast.error("Please turn on Location and allow access in your browser settings.", {
                             autoClose: 5000
                         });
-                    } else if (error.code === 2) {
+                    } else if (error.code === 2 || error.code === 3) {
+                        // On Android, when device GPS toggle is OFF, Chrome returns either code 2 or times out (code 3)
                         setLocationError({
                             title: "Device GPS is Turned Off",
-                            message: "Please swipe down your notification panel, turn ON Location, and tap Detect again."
+                            message: "Please swipe down your notification panel, turn ON Location (GPS), and tap Detect again."
                         });
                         toast.error("📍 Device GPS is turned off. Please swipe down your notification panel, turn ON Location, and tap Detect again.", {
                             autoClose: 6000
-                        });
-                    } else if (error.code === 3) {
-                        setLocationError({
-                            title: "Location Request Timed Out",
-                            message: "GPS satellite lock took too long. Please tap Detect again or choose your city below."
-                        });
-                        toast.warn("Location request timed out. Please try again or select your city below.", {
-                            autoClose: 5000
                         });
                     } else {
                         setLocationError({
@@ -189,7 +182,7 @@ const LocationModal = () => {
                 },
                 {
                     enableHighAccuracy: false,
-                    timeout: 15000,
+                    timeout: 8000,
                     maximumAge: 300000
                 }
             );
