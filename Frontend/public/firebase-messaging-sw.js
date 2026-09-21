@@ -56,10 +56,21 @@ self.addEventListener('notificationclick', (event) => {
 
   const data = event.notification?.data || {};
   const origin = self.location.origin;
-  let targetUrl = data.clickUrl || data.link || data.url || `${origin}/`;
+  let targetUrl = data.clickUrl || data.link || data.url || '';
 
-  if (!data.clickUrl && data.orderId) {
+  if (!targetUrl && data.productId) {
+    targetUrl = `${origin}/product/${data.productId}`;
+  } else if (!targetUrl && data.categorySlug) {
+    targetUrl = `${origin}/category/${data.categorySlug}`;
+  } else if (!targetUrl && data.orderId) {
     targetUrl = `${origin}/orders/${data.orderId}`;
+  } else if (!targetUrl && data.customLink) {
+    const cl = data.customLink;
+    targetUrl = cl.startsWith('http') ? cl : `${origin}${cl.startsWith('/') ? '' : '/'}${cl}`;
+  }
+
+  if (!targetUrl) {
+    targetUrl = `${origin}/`;
   }
 
   // If link points to outdated Vercel domain, rewrite to current origin

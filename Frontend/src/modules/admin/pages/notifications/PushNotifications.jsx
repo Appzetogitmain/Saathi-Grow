@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Send, Bell, User, Clock, Search, Users, Shield, Truck, Store, Trash2, Smartphone, ChevronLeft, ChevronRight, Loader2, Info, RefreshCw, CheckCircle } from 'lucide-react';
+import { Send, Bell, User, Clock, Search, Users, Shield, Truck, Store, Trash2, Smartphone, ChevronLeft, ChevronRight, Loader2, Info, RefreshCw, CheckCircle, Package, Tag, Link2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import PageInfoTooltip from '../../../../common/components/modals/PageInfoTooltip';
 import { pageInfoData } from '../../../../common/data/pageInfoData';
 import { sendNotification, getNotificationHistory, searchRecipients, deleteNotifications } from '../../api/notificationApi';
+import { getCategories } from '../../api/categoryApi';
+import { getProducts } from '../../api/productApi';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { showDeleteConfirmation } from '../../../../common/utils/alertUtils';
 
@@ -18,6 +20,17 @@ const PushNotifications = () => {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(false);
     const [dispatching, setDispatching] = useState(false);
+
+    // Destination / Click Action state
+    const [clickActionType, setClickActionType] = useState('home'); // 'home' | 'product' | 'category' | 'custom'
+    const [categories, setCategories] = useState([]);
+    const [selectedCategory, setSelectedCategory] = useState('');
+    const [categoriesLoading, setCategoriesLoading] = useState(false);
+    const [productSearch, setProductSearch] = useState('');
+    const [productResults, setProductResults] = useState([]);
+    const [productLoading, setProductLoading] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [customLink, setCustomLink] = useState('');
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
@@ -53,6 +66,40 @@ const PushNotifications = () => {
         fetchHistory(1);
     }, [fetchHistory]);
 
+    // Fetch categories when category destination is selected
+    useEffect(() => {
+        if (clickActionType === 'category' && categories.length === 0 && adminUser?.token) {
+            setCategoriesLoading(true);
+            getCategories(adminUser.token)
+                .then(res => {
+                    const list = Array.isArray(res) ? res : (res?.categories || []);
+                    setCategories(list);
+                    if (list.length > 0 && !selectedCategory) {
+                        setSelectedCategory(list[0].slug || list[0].name.toLowerCase().split(' ').join('-'));
+                    }
+                })
+                .catch(err => console.error('Categories load error:', err))
+                .finally(() => setCategoriesLoading(false));
+        }
+    }, [clickActionType, categories.length, adminUser?.token, selectedCategory]);
+
+    const handleProductSearch = async (val) => {
+        setProductSearch(val);
+        if (!val || val.trim().length < 2) {
+            setProductResults([]);
+            return;
+        }
+        try {
+            setProductLoading(true);
+            const res = await getProducts(adminUser.token, { search: val.trim(), limit: 8 });
+            setProductResults(res?.products || []);
+        } catch (error) {
+            console.error('Product search error:', error);
+        } finally {
+            setProductLoading(false);
+        }
+    };
+
     const handleSearch = async (val) => {
         setSearchQuery(val);
         if (val.length < 2) {
@@ -83,6 +130,21 @@ const PushNotifications = () => {
             return;
         }
 
+        if (clickActionType === 'product' && !selectedProduct) {
+            toast.error('Please search and select a target product');
+            return;
+        }
+
+        if (clickActionType === 'category' && !selectedCategory) {
+            toast.error('Please select a target category');
+            return;
+        }
+
+        if (clickActionType === 'custom' && !customLink.trim()) {
+            toast.error('Please enter a destination URL or path (e.g. /offers)');
+            return;
+        }
+
         try {
             setDispatching(true);
             const payload = {
@@ -91,7 +153,11 @@ const PushNotifications = () => {
                 targetType,
                 group: targetType === 'broadcast' ? selectedGroup : undefined,
                 recipientId: targetType === 'individual' ? selectedRecipient._id : undefined,
-                recipientType: targetType === 'individual' ? recipientType : undefined
+                recipientType: targetType === 'individual' ? recipientType : undefined,
+                clickActionType,
+                productId: clickActionType === 'product' ? selectedProduct._id : undefined,
+                categorySlug: clickActionType === 'category' ? selectedCategory : undefined,
+                customLink: clickActionType === 'custom' ? customLink.trim() : undefined,
             };
 
             const res = await sendNotification(adminUser.token, payload);
@@ -101,6 +167,9 @@ const PushNotifications = () => {
                 setMessage('');
                 setSelectedRecipient(null);
                 setSearchQuery('');
+                setSelectedProduct(null);
+                setProductSearch('');
+                setCustomLink('');
                 fetchHistory(1);
             }
         } catch (error) {
@@ -255,6 +324,144 @@ const PushNotifications = () => {
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Notification Click Destination Selector */}
+                                <div className="space-y-2 pt-3 border-t border-slate-100">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-tight flex items-center justify-between">
+                                        <span>Action On Tap</span>
+                                        <span className="text-[10px] text-blue-600 font-semibold lowercase">tap opens</span>
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-100 font-bold">
+                                        <button
+                                            type="button"
+                                            onClick={() => setClickActionType('home')}
+                                            className={`py-1.5 px-2 rounded-lg text-[11px] transition-all flex items-center justify-center gap-1.5 ${clickActionType === 'home' ? 'bg-white text-blue-600 shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-700'}`}
+                                        >
+                                            <span>🏠</span> App Home
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setClickActionType('product')}
+                                            className={`py-1.5 px-2 rounded-lg text-[11px] transition-all flex items-center justify-center gap-1.5 ${clickActionType === 'product' ? 'bg-white text-blue-600 shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-700'}`}
+                                        >
+                                            <Package size={12} /> Product
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setClickActionType('category')}
+                                            className={`py-1.5 px-2 rounded-lg text-[11px] transition-all flex items-center justify-center gap-1.5 ${clickActionType === 'category' ? 'bg-white text-blue-600 shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-700'}`}
+                                        >
+                                            <Tag size={12} /> Category
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setClickActionType('custom')}
+                                            className={`py-1.5 px-2 rounded-lg text-[11px] transition-all flex items-center justify-center gap-1.5 ${clickActionType === 'custom' ? 'bg-white text-blue-600 shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-700'}`}
+                                        >
+                                            <Link2 size={12} /> Custom URL
+                                        </button>
+                                    </div>
+
+                                    {/* Product Selector */}
+                                    {clickActionType === 'product' && (
+                                        <div className="space-y-2 pt-1 animate-in fade-in duration-200">
+                                            {selectedProduct ? (
+                                                <div className="flex items-center justify-between p-2.5 bg-blue-50/60 border border-blue-200/80 rounded-xl">
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                        <img
+                                                            src={selectedProduct.image || selectedProduct.images?.[0] || '/assets/logo_fav.png'}
+                                                            alt=""
+                                                            className="w-9 h-9 object-cover rounded-lg bg-white border border-blue-100 flex-shrink-0"
+                                                        />
+                                                        <div className="min-w-0">
+                                                            <p className="text-xs font-bold text-slate-800 truncate">{selectedProduct.name}</p>
+                                                            <p className="text-[10px] text-blue-700 font-semibold">
+                                                                ₹{selectedProduct.price || selectedProduct.variants?.[0]?.price || 0}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setSelectedProduct(null); setProductSearch(''); }}
+                                                        className="text-rose-500 hover:text-rose-700 text-[10px] font-bold uppercase p-1"
+                                                    >
+                                                        Change
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="relative">
+                                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search product by name or SKU..."
+                                                        value={productSearch}
+                                                        onChange={(e) => handleProductSearch(e.target.value)}
+                                                        className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:border-blue-500 text-xs font-bold text-slate-700 shadow-sm"
+                                                    />
+                                                    {productLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-blue-600" size={14} />}
+                                                    {productResults.length > 0 && !selectedProduct && (
+                                                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 shadow-xl rounded-xl max-h-48 overflow-y-auto divide-y divide-slate-50 z-50">
+                                                            {productResults.map(p => (
+                                                                <button
+                                                                    key={p._id}
+                                                                    type="button"
+                                                                    onClick={() => { setSelectedProduct(p); setProductResults([]); setProductSearch(''); }}
+                                                                    className="w-full p-2 text-left hover:bg-blue-50/50 flex items-center gap-2.5 transition"
+                                                                >
+                                                                    <img
+                                                                        src={p.image || p.images?.[0] || '/assets/logo_fav.png'}
+                                                                        alt=""
+                                                                        className="w-7 h-7 object-cover rounded bg-slate-100 border flex-shrink-0"
+                                                                    />
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <p className="text-xs font-bold text-slate-800 truncate">{p.name}</p>
+                                                                        <p className="text-[10px] text-slate-400">₹{p.price || p.variants?.[0]?.price || 0}</p>
+                                                                    </div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Category Selector */}
+                                    {clickActionType === 'category' && (
+                                        <div className="space-y-1 pt-1 animate-in fade-in duration-200">
+                                            <select
+                                                value={selectedCategory}
+                                                onChange={(e) => setSelectedCategory(e.target.value)}
+                                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:border-blue-500 text-xs font-bold text-slate-700 shadow-sm"
+                                            >
+                                                {categoriesLoading && <option value="">Loading categories...</option>}
+                                                {!categoriesLoading && categories.length === 0 && <option value="">No categories found</option>}
+                                                {categories.map(cat => {
+                                                    const slug = cat.slug || cat.name?.toLowerCase().split(' ').join('-');
+                                                    return (
+                                                        <option key={cat._id || slug} value={slug}>
+                                                            {cat.name}
+                                                        </option>
+                                                    );
+                                                })}
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    {/* Custom URL Selector */}
+                                    {clickActionType === 'custom' && (
+                                        <div className="space-y-1 pt-1 animate-in fade-in duration-200">
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. /offers or /profile/orders or https://..."
+                                                value={customLink}
+                                                onChange={(e) => setCustomLink(e.target.value)}
+                                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:border-blue-500 text-xs font-bold text-slate-700 shadow-sm"
+                                            />
+                                            <p className="text-[10px] text-slate-400">Enter internal path like <code className="text-blue-600 font-bold">/offers</code> or external URL</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="space-y-4">
@@ -309,6 +516,19 @@ const PushNotifications = () => {
                                 <p className="text-[10px] font-bold text-slate-500 leading-relaxed overflow-hidden line-clamp-3 opacity-80">
                                     {message || t('push.preview_instruction')}
                                 </p>
+                                {/* Destination Indicator Badge */}
+                                <div className="pt-2 mt-2 border-t border-slate-100 flex items-center gap-1.5 text-[9px] font-bold text-blue-600">
+                                    <span>🎯</span>
+                                    <span className="truncate">
+                                        {clickActionType === 'product' && selectedProduct
+                                            ? `Product: ${selectedProduct.name}`
+                                            : clickActionType === 'category' && selectedCategory
+                                            ? `Category: ${selectedCategory}`
+                                            : clickActionType === 'custom' && customLink
+                                            ? `Link: ${customLink}`
+                                            : 'Opens App Home'}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                         <p className="mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('push.preview')}</p>
@@ -382,6 +602,12 @@ const PushNotifications = () => {
                                         <td className="px-6 py-5">
                                             <div className="font-bold text-slate-800 text-xs uppercase tracking-tight">{n.title}</div>
                                             <div className="text-[11px] text-slate-400 font-bold line-clamp-1">{n.body}</div>
+                                            {n.data && (n.data.productId || n.data.categorySlug || n.data.customLink) && (
+                                                <div className="mt-1 inline-flex items-center gap-1 text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                                                    <span>🎯</span>
+                                                    {n.data.productId ? 'Product' : n.data.categorySlug ? `Category: ${n.data.categorySlug}` : 'Custom Link'}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-4 py-5 text-center">
                                             <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 text-slate-500 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase">
