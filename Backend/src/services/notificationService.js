@@ -10,7 +10,15 @@ import Notification from '../models/Notification.js';
 const sentCache = new Map();
 const CACHE_TTL = 10000; // 10 seconds
 
-const BASE_CLIENT_URL = process.env.CLIENT_URL || 'https://saathigro.in';
+const getBaseClientUrl = () => {
+  const envUrl = process.env.CLIENT_URL;
+  if (envUrl && !envUrl.includes('vercel.app')) {
+    return envUrl.replace(/\/$/, '');
+  }
+  return 'https://saathigro.in';
+};
+
+const BASE_CLIENT_URL = getBaseClientUrl();
 
 const buildDeepLink = (recipientModel, data = {}) => {
   const baseUrl = BASE_CLIENT_URL;
