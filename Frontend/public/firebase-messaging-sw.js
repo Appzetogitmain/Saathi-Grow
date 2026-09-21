@@ -68,21 +68,24 @@ self.addEventListener('notificationclick', (event) => {
     });
 
     if (existingClient) {
-      await existingClient.focus();
-      // 1. Send postMessage so React Router handles in-app navigation
       existingClient.postMessage({ type: 'NOTIFICATION_CLICK_NAVIGATE', url: targetUrl });
-      // 2. Also attempt client.navigate if supported and URL differs
+      let navigated = false;
       if ('navigate' in existingClient && existingClient.url !== targetUrl) {
         try {
-          await existingClient.navigate(targetUrl);
+          const navClient = await existingClient.navigate(targetUrl);
+          if (navClient) {
+            navigated = true;
+            return navClient.focus();
+          }
         } catch (e) {
-          console.warn('[SW] existingClient.navigate error:', e);
+          console.warn('[SW] existingClient.navigate failed:', e);
         }
       }
-      return;
+      await existingClient.focus();
+      if (navigated) return;
     }
 
-    // No window open: open targetUrl (launches the installed PWA or browser window)
+    // Always fallback to openWindow so targetUrl is loaded directly
     if (clients.openWindow) {
       return clients.openWindow(targetUrl);
     }
