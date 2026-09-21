@@ -54,25 +54,57 @@ const GlobalLoading = () => (
 
 /**
  * Listens for postMessage from firebase-messaging-sw.js (NOTIFICATION_CLICK_NAVIGATE)
- * and uses React Router to navigate without a full page reload.
- * Must be rendered inside <BrowserRouter>.
+ * and Firebase compat SDK (notification-clicked), then uses React Router
+ * to navigate without a full page reload. Must be inside <BrowserRouter>.
  */
 function SWNavigationListener() {
     const navigate = useNavigate();
     useEffect(() => {
-        if (!('serviceWorker' in navigator)) return;
         const handleMessage = (event) => {
-            if (event.data?.type === 'NOTIFICATION_CLICK_NAVIGATE' && event.data?.url) {
+            const data = event.data || {};
+            let targetUrl = null;
+
+            if (data.type === 'NOTIFICATION_CLICK_NAVIGATE' && data.url) {
+                targetUrl = data.url;
+            } else if (data.messageType === 'notification-clicked' || data.isFirebaseMessaging) {
+                const fcmData = data.data || {};
+                const fcmOptions = data.fcmOptions || {};
+                targetUrl = fcmOptions.link || fcmData.link || fcmData.url || fcmData.click_action;
+                if (!targetUrl && fcmData.productId) targetUrl = `/product/${fcmData.productId}`;
+                if (!targetUrl && fcmData.categorySlug) targetUrl = `/category/${fcmData.categorySlug}`;
+                if (!targetUrl && fcmData.orderId) targetUrl = `/orders/${fcmData.orderId}`;
+                if (!targetUrl && fcmData.customLink) targetUrl = fcmData.customLink;
+            }
+
+            if (targetUrl) {
                 try {
-                    const parsed = new URL(event.data.url);
-                    navigate(parsed.pathname + parsed.search + parsed.hash);
-                } catch {
-                    navigate('/');
+                    if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
+                        const parsed = new URL(targetUrl);
+                        if (parsed.origin === window.location.origin) {
+                            navigate(parsed.pathname + parsed.search + parsed.hash);
+                        } else {
+                            window.location.href = targetUrl;
+                        }
+                    } else {
+                        navigate(targetUrl.startsWith('/') ? targetUrl : `/${targetUrl}`);
+                    }
+                } catch (e) {
+                    navigate(targetUrl.startsWith('/') ? targetUrl : `/${targetUrl}`);
                 }
             }
         };
-        navigator.serviceWorker.addEventListener('message', handleMessage);
-        return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', handleMessage);
+        }
+        window.addEventListener('message', handleMessage);
+
+        return () => {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.removeEventListener('message', handleMessage);
+            }
+            window.removeEventListener('message', handleMessage);
+        };
     }, [navigate]);
     return null;
 }

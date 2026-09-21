@@ -14,7 +14,11 @@ import Swal from 'sweetalert2';
  */
 const FirebaseNotificationHandler = ({ token, role, isApp = false, showToast = false }) => {
   const resolveNotificationLink = (payloadData = {}) => {
+    if (payloadData?.productId) return `/product/${payloadData.productId}`;
+    if (payloadData?.categorySlug) return `/category/${payloadData.categorySlug}`;
+    if (payloadData?.customLink) return payloadData.customLink;
     if (payloadData?.link) return payloadData.link;
+    if (payloadData?.url) return payloadData.url;
     if (payloadData?.orderId && role === 'user') return `/orders/${payloadData.orderId}`;
     return '/notifications';
   };
@@ -75,21 +79,25 @@ const FirebaseNotificationHandler = ({ token, role, isApp = false, showToast = f
       // Trigger native notification in foreground if permission is granted (uses ServiceWorker on mobile)
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         try {
+          const clickUrl = resolveNotificationLink(payload.data || {});
           if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
             navigator.serviceWorker.ready.then((reg) => {
               reg.showNotification(title, {
                 body: body,
-                icon: '/favicon.png',
-                badge: '/favicon.png',
+                icon: '/assets/logo_fav.png',
+                badge: '/assets/logo_fav.png',
                 tag: payload.data?.runId || payload.data?.orderId || undefined,
-                data: payload.data || {}
+                data: {
+                  ...(payload.data || {}),
+                  clickUrl: clickUrl.startsWith('http') ? clickUrl : `${window.location.origin}${clickUrl.startsWith('/') ? '' : '/'}${clickUrl}`
+                }
               });
             }).catch(() => {});
           } else {
             const nativeNotification = new Notification(title, {
               body: body,
-              icon: '/favicon.png',
-              badge: '/favicon.png',
+              icon: '/assets/logo_fav.png',
+              badge: '/assets/logo_fav.png',
               tag: payload.data?.runId || payload.data?.orderId || undefined,
               requireInteraction: ['assignment', 'run_assignment', 'return_batch'].includes(payload.data?.type)
             });
@@ -99,7 +107,7 @@ const FirebaseNotificationHandler = ({ token, role, isApp = false, showToast = f
                 window.location.href = target;
                 return;
               }
-              window.location.href = `${window.location.origin}${target}`;
+              window.location.href = `${window.location.origin}${target.startsWith('/') ? '' : '/'}${target}`;
             };
           }
         } catch (e) {
@@ -112,13 +120,26 @@ const FirebaseNotificationHandler = ({ token, role, isApp = false, showToast = f
       if (role === 'user' || popupTypes.includes(payload.data?.type)) {
         const type = payload.data?.type;
         const icon = (type === 'resolution' || type === 'ticket_closed') ? 'success' : 'info';
+        const targetLink = resolveNotificationLink(payload.data || {});
+        const hasSpecificTarget = targetLink && targetLink !== '/notifications';
+
         Swal.fire({
           title: title,
           text: body,
           icon: icon,
-          confirmButtonText: 'Got it!',
+          showCancelButton: hasSpecificTarget,
+          cancelButtonText: 'Dismiss',
+          confirmButtonText: hasSpecificTarget ? 'View' : 'Got it!',
           confirmButtonColor: '#2563eb',
           customClass: { popup: 'rounded-3xl' }
+        }).then((result) => {
+          if (result.isConfirmed && hasSpecificTarget) {
+            if (targetLink.startsWith('http')) {
+              window.location.href = targetLink;
+            } else {
+              window.location.href = `${window.location.origin}${targetLink.startsWith('/') ? '' : '/'}${targetLink}`;
+            }
+          }
         });
       } else if (showToast) {
         // Skip default toast for delivery assignment runs so they only get the high-priority fullscreen modal overlay

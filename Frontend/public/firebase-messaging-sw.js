@@ -1,72 +1,44 @@
 // public/firebase-messaging-sw.js
-// ✅ Updated to firebase-compat 10.x for consistency + safe fallback handling
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
-const firebaseConfig = {
-  apiKey: "AIzaSyC75GkUogpq7NA2JYKmnFcBPvhtqSNdWqI",
-  authDomain: "saathigro-ea378.firebaseapp.com",
-  databaseURL: "https://saathigro-ea378-default-rtdb.firebaseio.com",
-  projectId: "saathigro-ea378",
-  storageBucket: "saathigro-ea378.firebasestorage.app",
-  messagingSenderId: "730414099137",
-  appId: "1:730414099137:web:93d03d9d73ed01f25b4240",
-  measurementId: "G-WHGN82T3LV"
-};
-
-firebase.initializeApp(firebaseConfig);
-const messaging = firebase.messaging();
-
-// Activate new service worker immediately
-self.addEventListener('install', (event) => {
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim());
-});
-
-messaging.onBackgroundMessage((payload) => {
-  console.log('[SW] Background message received:', payload);
-
-  const title =
-    payload.notification?.title ||
-    payload.data?.title ||
-    'SaathiGro';
-
-  const origin = self.location.origin;
-  const defaultIcon = `${origin}/assets/logo_fav.png`;
-
-  const options = {
-    body: payload.notification?.body || payload.data?.body || '',
-    icon: payload.notification?.icon || payload.data?.icon || defaultIcon,
-    badge: payload.notification?.badge || payload.data?.badge || defaultIcon,
-    vibrate: [200, 100, 200],
-    data: {
-      ...payload.data,
-      clickUrl: payload.fcmOptions?.link || payload.data?.link || payload.data?.url || `${origin}/`
-    },
-  };
-
-  self.registration.showNotification(title, options);
-});
-
+// 1. MUST register notificationclick BEFORE Firebase compat imports
+// so our handler executes first and event.stopImmediatePropagation() prevents
+// Firebase's internal handler from hijacking the click.
 self.addEventListener('notificationclick', (event) => {
+  event.stopImmediatePropagation();
   event.notification.close();
 
-  const data = event.notification?.data || {};
+  const rawData = event.notification?.data || {};
+  const fcmMsg = rawData.FCM_MSG || {};
+  const fcmData = fcmMsg.data || {};
+  const fcmOptions = fcmMsg.fcmOptions || {};
+  const fcmNotif = fcmMsg.notification || {};
   const origin = self.location.origin;
-  let targetUrl = data.clickUrl || data.link || data.url || '';
 
-  if (!targetUrl && data.productId) {
-    targetUrl = `${origin}/product/${data.productId}`;
-  } else if (!targetUrl && data.categorySlug) {
-    targetUrl = `${origin}/category/${data.categorySlug}`;
-  } else if (!targetUrl && data.orderId) {
-    targetUrl = `${origin}/orders/${data.orderId}`;
-  } else if (!targetUrl && data.customLink) {
-    const cl = data.customLink;
-    targetUrl = cl.startsWith('http') ? cl : `${origin}${cl.startsWith('/') ? '' : '/'}${cl}`;
+  let targetUrl =
+    rawData.clickUrl ||
+    rawData.link ||
+    rawData.url ||
+    fcmOptions.link ||
+    fcmData.link ||
+    fcmData.url ||
+    fcmData.click_action ||
+    fcmNotif.click_action ||
+    rawData.click_action ||
+    '';
+
+  const productId = rawData.productId || fcmData.productId;
+  const categorySlug = rawData.categorySlug || fcmData.categorySlug;
+  const orderId = rawData.orderId || fcmData.orderId;
+  const customLink = rawData.customLink || fcmData.customLink;
+
+  if (!targetUrl && productId) {
+    targetUrl = `${origin}/product/${productId}`;
+  } else if (!targetUrl && categorySlug) {
+    targetUrl = `${origin}/category/${categorySlug}`;
+  } else if (!targetUrl && orderId) {
+    targetUrl = `${origin}/orders/${orderId}`;
+  } else if (!targetUrl && customLink) {
+    targetUrl = customLink.startsWith('http') ? customLink : `${origin}${customLink.startsWith('/') ? '' : '/'}${customLink}`;
   }
 
   if (!targetUrl) {
@@ -96,14 +68,76 @@ self.addEventListener('notificationclick', (event) => {
     });
 
     if (existingClient) {
-      // ✅ Use postMessage so React Router handles in-app navigation (no full reload)
+      await existingClient.focus();
+      // 1. Send postMessage so React Router handles in-app navigation
       existingClient.postMessage({ type: 'NOTIFICATION_CLICK_NAVIGATE', url: targetUrl });
-      return existingClient.focus();
+      // 2. Also attempt client.navigate if supported and URL differs
+      if ('navigate' in existingClient && existingClient.url !== targetUrl) {
+        try {
+          await existingClient.navigate(targetUrl);
+        } catch (e) {
+          console.warn('[SW] existingClient.navigate error:', e);
+        }
+      }
+      return;
     }
 
-    // No window open: open targetUrl (which launches the installed PWA on Android)
+    // No window open: open targetUrl (launches the installed PWA or browser window)
     if (clients.openWindow) {
       return clients.openWindow(targetUrl);
     }
   })());
+});
+
+// 2. Activate new service worker immediately
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim());
+});
+
+// 3. Load Firebase scripts
+importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC75GkUogpq7NA2JYKmnFcBPvhtqSNdWqI",
+  authDomain: "saathigro-ea378.firebaseapp.com",
+  databaseURL: "https://saathigro-ea378-default-rtdb.firebaseio.com",
+  projectId: "saathigro-ea378",
+  storageBucket: "saathigro-ea378.firebasestorage.app",
+  messagingSenderId: "730414099137",
+  appId: "1:730414099137:web:93d03d9d73ed01f25b4240",
+  measurementId: "G-WHGN82T3LV"
+};
+
+firebase.initializeApp(firebaseConfig);
+const messaging = firebase.messaging();
+
+messaging.onBackgroundMessage((payload) => {
+  console.log('[SW] Background message received:', payload);
+
+  const title =
+    payload.notification?.title ||
+    payload.data?.title ||
+    'SaathiGro';
+
+  const origin = self.location.origin;
+  const defaultIcon = `${origin}/assets/logo_fav.png`;
+  const deepLink = payload.fcmOptions?.link || payload.data?.link || payload.data?.url || '';
+
+  const options = {
+    body: payload.notification?.body || payload.data?.body || '',
+    icon: payload.notification?.icon || payload.data?.icon || defaultIcon,
+    badge: payload.notification?.badge || payload.data?.badge || defaultIcon,
+    vibrate: [200, 100, 200],
+    data: {
+      ...payload.data,
+      clickUrl: deepLink || `${origin}/`
+    },
+  };
+
+  self.registration.showNotification(title, options);
 });
