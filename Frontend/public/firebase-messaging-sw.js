@@ -85,7 +85,7 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil((async () => {
     const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
-    
+
     // Check if an existing tab or installed PWA window is already open on this origin
     const existingClient = allClients.find((c) => {
       try {
@@ -96,11 +96,9 @@ self.addEventListener('notificationclick', (event) => {
     });
 
     if (existingClient) {
-      await existingClient.focus();
-      if ('navigate' in existingClient && existingClient.url !== targetUrl) {
-        return existingClient.navigate(targetUrl);
-      }
-      return;
+      // ✅ Use postMessage so React Router handles in-app navigation (no full reload)
+      existingClient.postMessage({ type: 'NOTIFICATION_CLICK_NAVIGATE', url: targetUrl });
+      return existingClient.focus();
     }
 
     // No window open: open targetUrl (which launches the installed PWA on Android)

@@ -1,5 +1,5 @@
-import React, { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import React, { lazy, Suspense, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { AuthProvider } from './modules/user/context/AuthContext';
 import { CartProvider } from './modules/user/context/CartContext';
 import { LocationProvider } from './modules/user/context/LocationContext';
@@ -52,9 +52,35 @@ const GlobalLoading = () => (
 
 
 
+/**
+ * Listens for postMessage from firebase-messaging-sw.js (NOTIFICATION_CLICK_NAVIGATE)
+ * and uses React Router to navigate without a full page reload.
+ * Must be rendered inside <BrowserRouter>.
+ */
+function SWNavigationListener() {
+    const navigate = useNavigate();
+    useEffect(() => {
+        if (!('serviceWorker' in navigator)) return;
+        const handleMessage = (event) => {
+            if (event.data?.type === 'NOTIFICATION_CLICK_NAVIGATE' && event.data?.url) {
+                try {
+                    const parsed = new URL(event.data.url);
+                    navigate(parsed.pathname + parsed.search + parsed.hash);
+                } catch {
+                    navigate('/');
+                }
+            }
+        };
+        navigator.serviceWorker.addEventListener('message', handleMessage);
+        return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
+    }, [navigate]);
+    return null;
+}
+
 function App() {
     return (
         <BrowserRouter>
+            <SWNavigationListener />
             <ThemeProvider>
                 <AuthProvider>
                     <LocationProvider>

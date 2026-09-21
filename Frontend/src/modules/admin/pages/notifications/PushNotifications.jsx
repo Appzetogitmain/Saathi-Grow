@@ -83,15 +83,33 @@ const PushNotifications = () => {
         }
     }, [clickActionType, categories.length, adminUser?.token, selectedCategory]);
 
+    // Load initial products when Product tab is selected
+    useEffect(() => {
+        if (clickActionType === 'product' && productResults.length === 0 && !selectedProduct && adminUser?.token) {
+            setProductLoading(true);
+            getProducts(adminUser.token, { limit: 10 })
+                .then(res => setProductResults(res?.products || []))
+                .catch(err => console.error('Initial product load error:', err))
+                .finally(() => setProductLoading(false));
+        }
+    }, [clickActionType]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const handleProductSearch = async (val) => {
         setProductSearch(val);
-        if (!val || val.trim().length < 2) {
-            setProductResults([]);
+        if (!val || val.trim().length < 1) {
+            // Show initial products list when search is cleared
+            if (adminUser?.token) {
+                setProductLoading(true);
+                getProducts(adminUser.token, { limit: 10 })
+                    .then(res => setProductResults(res?.products || []))
+                    .catch(err => console.error('Product load error:', err))
+                    .finally(() => setProductLoading(false));
+            }
             return;
         }
         try {
             setProductLoading(true);
-            const res = await getProducts(adminUser.token, { search: val.trim(), limit: 8 });
+            const res = await getProducts(adminUser.token, { search: val.trim(), limit: 12 });
             setProductResults(res?.products || []);
         } catch (error) {
             console.error('Product search error:', error);
@@ -376,7 +394,7 @@ const PushNotifications = () => {
                                                         <div className="min-w-0">
                                                             <p className="text-xs font-bold text-slate-800 truncate">{selectedProduct.name}</p>
                                                             <p className="text-[10px] text-blue-700 font-semibold">
-                                                                ₹{selectedProduct.price || selectedProduct.variants?.[0]?.price || 0}
+                                                                ₹{selectedProduct.basePrice || selectedProduct.variants?.[0]?.price || 0}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -415,7 +433,7 @@ const PushNotifications = () => {
                                                                     />
                                                                     <div className="min-w-0 flex-1">
                                                                         <p className="text-xs font-bold text-slate-800 truncate">{p.name}</p>
-                                                                        <p className="text-[10px] text-slate-400">₹{p.price || p.variants?.[0]?.price || 0}</p>
+                                                                        <p className="text-[10px] text-slate-400">₹{p.basePrice || p.variants?.[0]?.price || 0}</p>
                                                                     </div>
                                                                 </button>
                                                             ))}
