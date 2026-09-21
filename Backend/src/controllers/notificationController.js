@@ -196,7 +196,18 @@ export const adminSendNotification = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 
-    const { title, body, targetType, recipientId, recipientType, group } = req.body;
+    const {
+      title,
+      body,
+      targetType,
+      recipientId,
+      recipientType,
+      group,
+      clickActionType,
+      productId,
+      categorySlug,
+      customLink
+    } = req.body;
 
     if (!title || !body) {
       return res.status(400).json({ success: false, message: 'Title and body are required' });
@@ -208,6 +219,19 @@ export const adminSendNotification = async (req, res) => {
       finalRecipientModel = 'Admin';
     }
 
+    // Build extra pushData payload for FCM and in-app Notification data
+    const pushData = {
+      type: targetType === 'broadcast' ? 'admin_broadcast' : 'individual',
+    };
+
+    if (clickActionType === 'product' && productId) {
+      pushData.productId = String(productId);
+    } else if (clickActionType === 'category' && categorySlug) {
+      pushData.categorySlug = String(categorySlug);
+    } else if (clickActionType === 'custom' && customLink) {
+      pushData.customLink = String(customLink);
+    }
+
     const notificationData = {
       title,
       body,
@@ -216,7 +240,8 @@ export const adminSendNotification = async (req, res) => {
       isBroadcast: targetType === 'broadcast',
       targetGroup: targetType === 'broadcast' ? (group || 'all') : undefined,
       recipient: targetType !== 'broadcast' ? recipientId : undefined,
-      recipientModel: targetType !== 'broadcast' ? finalRecipientModel : undefined
+      recipientModel: targetType !== 'broadcast' ? finalRecipientModel : undefined,
+      data: pushData
     };
 
     const record = await Notification.create(notificationData);
@@ -224,13 +249,13 @@ export const adminSendNotification = async (req, res) => {
     // Trigger FCM Push dispatch (without re-saving since skipSave=true is used internally or passed below)
     if (targetType === 'broadcast') {
       if (group === 'users' || group === 'all') {
-        notifyAllUsers({ title, body }, { type: 'admin_broadcast' });
+        notifyAllUsers({ title, body }, pushData);
       }
       if (group === 'staff' || group === 'store_managers' || group === 'branch_managers' || group === 'all') {
-        notifyAdmins({ title, body }, { type: 'admin_broadcast' });
+        notifyAdmins({ title, body }, pushData);
       }
     } else {
-      await sendPushNotification(recipientId, finalRecipientModel, { title, body }, { type: 'individual' }, true);
+      await sendPushNotification(recipientId, finalRecipientModel, { title, body }, pushData, true);
     }
 
     res.status(200).json({ success: true, message: 'Notification processed', record });

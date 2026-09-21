@@ -14,8 +14,27 @@ const BASE_CLIENT_URL = process.env.CLIENT_URL || 'https://saathigro.in';
 
 const buildDeepLink = (recipientModel, data = {}) => {
   const baseUrl = BASE_CLIENT_URL;
+  const productId = data?.productId;
+  const categorySlug = data?.categorySlug;
+  const customLink = data?.customLink || data?.link || data?.url;
   const orderId = data?.orderId;
   const ticketId = data?.ticketId;
+
+  if (productId) {
+    return `${baseUrl}/product/${productId}`;
+  }
+
+  if (categorySlug) {
+    return `${baseUrl}/category/${categorySlug}`;
+  }
+
+  if (customLink && typeof customLink === 'string' && customLink.trim() !== '') {
+    const trimmed = customLink.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    return `${baseUrl}${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
+  }
 
   if (orderId) {
     if (recipientModel === 'User') return `${baseUrl}/orders/${orderId}`;
