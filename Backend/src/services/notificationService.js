@@ -191,7 +191,6 @@ export const sendPushNotification = async (recipientId, recipientModel, notifica
             visibility: 'public',
             defaultSound: true,
             defaultVibrateTimings: true,
-            clickAction: deepLink,
           },
         },
         // ✅ iOS config
