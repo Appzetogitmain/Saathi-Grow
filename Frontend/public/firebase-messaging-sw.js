@@ -81,8 +81,14 @@ self.addEventListener('notificationclick', (event) => {
     targetUrl = `${origin}${normalizedRoute}`;
   }
 
+  console.log("[SW NOTIFICATION CLICK] raw event data:", event.notification?.data);
+  console.log("[SW NOTIFICATION CLICK] notification:", event.notification);
+  console.log("[SW NOTIFICATION CLICK] extracted route:", route);
+  console.log("[SW NOTIFICATION CLICK] target URL:", targetUrl);
+
   event.waitUntil((async () => {
     const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    console.log("[SW NOTIFICATION CLICK] matched clients count:", allClients.length);
 
     // Check if an existing tab or installed PWA window is already open on this origin
     const existingClient = allClients.find((c) => {
@@ -93,7 +99,10 @@ self.addEventListener('notificationclick', (event) => {
       }
     });
 
+    console.log("[SW NOTIFICATION CLICK] existing client:", existingClient?.url);
+
     if (existingClient) {
+      console.log("[SW] EXISTING CLIENT branch taken - posting message & focusing");
       // Post notification click message to client and focus tab without hard reloading
       existingClient.postMessage({
         type: 'NOTIFICATION_CLICK_NAVIGATE',
@@ -103,6 +112,7 @@ self.addEventListener('notificationclick', (event) => {
       return existingClient.focus();
     }
 
+    console.log("[SW] COLD START branch taken - calling openWindow with:", targetUrl);
     // When no window client exists (Cold Start), open directly to target route
     if (clients.openWindow) {
       return clients.openWindow(targetUrl);
