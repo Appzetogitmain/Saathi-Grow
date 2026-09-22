@@ -260,7 +260,7 @@ const UserLayout = () => {
 
     // APK Mandatory Login Logic
     if (isWebView && !token && !isPublicPath) {
-        return <Navigate to="/login" replace />;
+        return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
     const shouldShowServiceUnavailable =

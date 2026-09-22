@@ -222,14 +222,33 @@ export const adminSendNotification = async (req, res) => {
     // Build extra pushData payload for FCM and in-app Notification data
     const pushData = {
       type: targetType === 'broadcast' ? 'admin_broadcast' : 'individual',
+      entityType: clickActionType || 'home',
+      entityId: '',
+      route: '/'
     };
 
     if (clickActionType === 'product' && productId) {
       pushData.productId = String(productId);
+      pushData.entityType = 'product';
+      pushData.entityId = String(productId);
+      pushData.route = `/product/${productId}`;
     } else if (clickActionType === 'category' && categorySlug) {
       pushData.categorySlug = String(categorySlug);
+      pushData.entityType = 'category';
+      pushData.entityId = String(categorySlug);
+      pushData.route = `/category/${categorySlug}`;
     } else if (clickActionType === 'custom' && customLink) {
-      pushData.customLink = String(customLink);
+      const trimmedLink = String(customLink).trim();
+      pushData.customLink = trimmedLink;
+      pushData.entityType = 'custom';
+      pushData.entityId = trimmedLink;
+      pushData.route = trimmedLink.startsWith('http://') || trimmedLink.startsWith('https://')
+        ? trimmedLink
+        : (trimmedLink.startsWith('/') ? trimmedLink : `/${trimmedLink}`);
+    } else {
+      pushData.entityType = 'home';
+      pushData.entityId = '';
+      pushData.route = '/';
     }
 
     const notificationData = {

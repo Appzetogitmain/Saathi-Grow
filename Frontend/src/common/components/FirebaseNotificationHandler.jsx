@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { generateToken, onMessageListener } from '../../config/firebase';
 import { toast } from 'react-toastify';
 import axios from 'axios';
@@ -13,7 +14,10 @@ import Swal from 'sweetalert2';
  * @param {boolean} isApp - Whether the app is running in a Flutter wrap.
  */
 const FirebaseNotificationHandler = ({ token, role, isApp = false, showToast = false }) => {
+  const navigate = useNavigate();
+
   const resolveNotificationLink = (payloadData = {}) => {
+    if (payloadData?.route) return payloadData.route;
     if (payloadData?.productId) return `/product/${payloadData.productId}`;
     if (payloadData?.categorySlug) return `/category/${payloadData.categorySlug}`;
     if (payloadData?.customLink) return payloadData.customLink;
@@ -21,6 +25,24 @@ const FirebaseNotificationHandler = ({ token, role, isApp = false, showToast = f
     if (payloadData?.url) return payloadData.url;
     if (payloadData?.orderId && role === 'user') return `/orders/${payloadData.orderId}`;
     return '/notifications';
+  };
+
+  const handleNavigation = (target) => {
+    if (!target) return;
+    if (target.startsWith('http://') || target.startsWith('https://')) {
+      try {
+        const parsed = new URL(target);
+        if (parsed.origin === window.location.origin) {
+          navigate(parsed.pathname + parsed.search + parsed.hash);
+        } else {
+          window.location.href = target;
+        }
+      } catch {
+        window.location.href = target;
+      }
+    } else {
+      navigate(target.startsWith('/') ? target : `/${target}`);
+    }
   };
   
   useEffect(() => {
@@ -103,11 +125,7 @@ const FirebaseNotificationHandler = ({ token, role, isApp = false, showToast = f
             });
             nativeNotification.onclick = () => {
               const target = resolveNotificationLink(payload.data || {});
-              if (target.startsWith('http')) {
-                window.location.href = target;
-                return;
-              }
-              window.location.href = `${window.location.origin}${target.startsWith('/') ? '' : '/'}${target}`;
+              handleNavigation(target);
             };
           }
         } catch (e) {
@@ -134,11 +152,7 @@ const FirebaseNotificationHandler = ({ token, role, isApp = false, showToast = f
           customClass: { popup: 'rounded-3xl' }
         }).then((result) => {
           if (result.isConfirmed && hasSpecificTarget) {
-            if (targetLink.startsWith('http')) {
-              window.location.href = targetLink;
-            } else {
-              window.location.href = `${window.location.origin}${targetLink.startsWith('/') ? '' : '/'}${targetLink}`;
-            }
+            handleNavigation(targetLink);
           }
         });
       } else if (showToast) {

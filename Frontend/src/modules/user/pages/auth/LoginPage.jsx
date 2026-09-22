@@ -8,9 +8,15 @@ const LoginPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Get redirect path from query string
+    // Get redirect path from query string or location state from
     const queryParams = new URLSearchParams(location.search);
-    const redirectPath = queryParams.get('redirect') || '/';
+    const fromLocation = location.state?.from;
+    const fromPath = fromLocation
+        ? (typeof fromLocation === 'string'
+            ? fromLocation
+            : `${fromLocation.pathname || ''}${fromLocation.search || ''}${fromLocation.hash || ''}`)
+        : null;
+    const redirectPath = queryParams.get('redirect') || fromPath || '/';
 
     useEffect(() => {
         captureReferralFromUrl(location.search);

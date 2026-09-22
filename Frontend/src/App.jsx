@@ -59,38 +59,49 @@ const GlobalLoading = () => (
  */
 function SWNavigationListener() {
     const navigate = useNavigate();
+    const lastNavRef = React.useRef({ target: '', time: 0 });
+
     useEffect(() => {
         const handleMessage = (event) => {
             const data = event.data || {};
-            let targetUrl = null;
+            let targetRoute = null;
 
-            if (data.type === 'NOTIFICATION_CLICK_NAVIGATE' && data.url) {
-                targetUrl = data.url;
+            if (data.type === 'NOTIFICATION_CLICK_NAVIGATE') {
+                targetRoute = data.route || data.url;
             } else if (data.messageType === 'notification-clicked' || data.isFirebaseMessaging) {
                 const fcmData = data.data || {};
                 const fcmOptions = data.fcmOptions || {};
-                targetUrl = fcmOptions.link || fcmData.link || fcmData.url || fcmData.click_action;
-                if (!targetUrl && fcmData.productId) targetUrl = `/product/${fcmData.productId}`;
-                if (!targetUrl && fcmData.categorySlug) targetUrl = `/category/${fcmData.categorySlug}`;
-                if (!targetUrl && fcmData.orderId) targetUrl = `/orders/${fcmData.orderId}`;
-                if (!targetUrl && fcmData.customLink) targetUrl = fcmData.customLink;
+                targetRoute = fcmData.route || fcmOptions.link || fcmData.link || fcmData.url || fcmData.click_action;
+                if (!targetRoute && fcmData.productId) targetRoute = `/product/${fcmData.productId}`;
+                if (!targetRoute && fcmData.categorySlug) targetRoute = `/category/${fcmData.categorySlug}`;
+                if (!targetRoute && fcmData.orderId) targetRoute = `/orders/${fcmData.orderId}`;
+                if (!targetRoute && fcmData.customLink) targetRoute = fcmData.customLink;
             }
 
-            if (targetUrl) {
-                try {
-                    if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
-                        const parsed = new URL(targetUrl);
-                        if (parsed.origin === window.location.origin) {
-                            navigate(parsed.pathname + parsed.search + parsed.hash);
-                        } else {
-                            window.location.href = targetUrl;
-                        }
+            if (!targetRoute || typeof targetRoute !== 'string') return;
+
+            // Debounce rapid duplicate messages (e.g. from service worker + browser window)
+            const now = Date.now();
+            if (lastNavRef.current.target === targetRoute && (now - lastNavRef.current.time) < 1000) {
+                return;
+            }
+            lastNavRef.current = { target: targetRoute, time: now };
+
+            try {
+                if (targetRoute.startsWith('http://') || targetRoute.startsWith('https://')) {
+                    const parsed = new URL(targetRoute);
+                    if (parsed.origin === window.location.origin) {
+                        navigate(parsed.pathname + parsed.search + parsed.hash);
                     } else {
-                        navigate(targetUrl.startsWith('/') ? targetUrl : `/${targetUrl}`);
+                        window.location.href = targetRoute;
                     }
-                } catch (e) {
-                    navigate(targetUrl.startsWith('/') ? targetUrl : `/${targetUrl}`);
+                } else {
+                    const normalized = targetRoute.startsWith('/') ? targetRoute : `/${targetRoute}`;
+                    navigate(normalized);
                 }
+            } catch (e) {
+                const normalized = targetRoute.startsWith('/') ? targetRoute : `/${targetRoute}`;
+                navigate(normalized);
             }
         };
 

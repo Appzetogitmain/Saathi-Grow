@@ -20,8 +20,13 @@ const getBaseClientUrl = () => {
 
 const BASE_CLIENT_URL = getBaseClientUrl();
 
-const buildDeepLink = (recipientModel, data = {}) => {
-  const baseUrl = BASE_CLIENT_URL;
+export const resolveRelativeRoute = (recipientModel, data = {}) => {
+  if (data?.route && typeof data.route === 'string' && data.route.trim() !== '') {
+    const r = data.route.trim();
+    if (r.startsWith('http://') || r.startsWith('https://')) return r;
+    return r.startsWith('/') ? r : `/${r}`;
+  }
+
   const productId = data?.productId;
   const categorySlug = data?.categorySlug;
   const customLink = data?.customLink || data?.link || data?.url;
@@ -29,11 +34,11 @@ const buildDeepLink = (recipientModel, data = {}) => {
   const ticketId = data?.ticketId;
 
   if (productId) {
-    return `${baseUrl}/product/${productId}`;
+    return `/product/${productId}`;
   }
 
   if (categorySlug) {
-    return `${baseUrl}/category/${categorySlug}`;
+    return `/category/${categorySlug}`;
   }
 
   if (customLink && typeof customLink === 'string' && customLink.trim() !== '') {
@@ -41,21 +46,30 @@ const buildDeepLink = (recipientModel, data = {}) => {
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       return trimmed;
     }
-    return `${baseUrl}${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
+    return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
   }
 
   if (orderId) {
-    if (recipientModel === 'User') return `${baseUrl}/orders/${orderId}`;
-    if (recipientModel === 'DeliveryPartner') return `${baseUrl}/delivery/dashboard`;
-    if (recipientModel === 'Vendor') return `${baseUrl}/vendor/orders`;
-    if (recipientModel === 'Admin') return `${baseUrl}/admin/orders`;
+    if (recipientModel === 'User') return `/orders/${orderId}`;
+    if (recipientModel === 'DeliveryPartner') return `/delivery/dashboard`;
+    if (recipientModel === 'Vendor') return `/vendor/orders`;
+    if (recipientModel === 'Admin') return `/admin/orders`;
   }
 
   if (ticketId && recipientModel === 'User') {
-    return `${baseUrl}/my-complaints`;
+    return `/my-complaints`;
   }
 
-  return baseUrl;
+  return '/';
+};
+
+const buildDeepLink = (recipientModel, data = {}) => {
+  const baseUrl = BASE_CLIENT_URL;
+  const relRoute = resolveRelativeRoute(recipientModel, data);
+  if (relRoute.startsWith('http://') || relRoute.startsWith('https://')) {
+    return relRoute;
+  }
+  return `${baseUrl}${relRoute === '/' ? '' : relRoute}`;
 };
 
 /**
@@ -123,7 +137,11 @@ export const sendPushNotification = async (recipientId, recipientModel, notifica
 
     const messages = uniqueTokens.map(token => {
       console.log('Sending notification to token:', token);
+      const relRoute = resolveRelativeRoute(recipientModel, data);
       const deepLink = buildDeepLink(recipientModel, data);
+      const entityType = data?.entityType || (data?.productId ? 'product' : (data?.categorySlug ? 'category' : (data?.customLink ? 'custom' : 'home')));
+      const entityId = data?.entityId || data?.productId || data?.categorySlug || '';
+
       const message = {
         token,
         notification: {
@@ -135,6 +153,9 @@ export const sendPushNotification = async (recipientId, recipientModel, notifica
           ...Object.fromEntries(
             Object.entries(data).map(([k, v]) => [k, String(v)])
           ),
+          entityType: String(entityType),
+          entityId: String(entityId),
+          route: String(relRoute),
           title: notification.title,
           body: notification.body,
           icon: `${BASE_CLIENT_URL}/assets/logo_fav.png`,
@@ -170,6 +191,7 @@ export const sendPushNotification = async (recipientId, recipientModel, notifica
             visibility: 'public',
             defaultSound: true,
             defaultVibrateTimings: true,
+            clickAction: deepLink,
           },
         },
         // ✅ iOS config

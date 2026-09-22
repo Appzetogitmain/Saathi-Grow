@@ -10,49 +10,75 @@ self.addEventListener('notificationclick', (event) => {
   const rawData = event.notification?.data || {};
   const fcmMsg = rawData.FCM_MSG || {};
   const fcmData = fcmMsg.data || {};
-  const fcmOptions = fcmMsg.fcmOptions || {};
+  const fcmOptions = fcmMsg.fcmOptions || fcmMsg.fcm_options || {};
   const fcmNotif = fcmMsg.notification || {};
   const origin = self.location.origin;
 
-  let targetUrl =
-    rawData.clickUrl ||
-    rawData.link ||
-    rawData.url ||
-    fcmOptions.link ||
-    fcmData.link ||
-    fcmData.url ||
-    fcmData.click_action ||
-    fcmNotif.click_action ||
-    rawData.click_action ||
-    '';
+  // 1. Prioritize canonical relative route if present
+  let route = rawData.route || fcmData.route || '';
 
+  // 2. Backward compatibility with entity keys
   const productId = rawData.productId || fcmData.productId;
   const categorySlug = rawData.categorySlug || fcmData.categorySlug;
   const orderId = rawData.orderId || fcmData.orderId;
   const customLink = rawData.customLink || fcmData.customLink;
 
-  if (!targetUrl && productId) {
-    targetUrl = `${origin}/product/${productId}`;
-  } else if (!targetUrl && categorySlug) {
-    targetUrl = `${origin}/category/${categorySlug}`;
-  } else if (!targetUrl && orderId) {
-    targetUrl = `${origin}/orders/${orderId}`;
-  } else if (!targetUrl && customLink) {
-    targetUrl = customLink.startsWith('http') ? customLink : `${origin}${customLink.startsWith('/') ? '' : '/'}${customLink}`;
-  }
-
-  if (!targetUrl) {
-    targetUrl = `${origin}/`;
-  }
-
-  // If link points to outdated Vercel domain, rewrite to current origin
-  if (targetUrl.includes('vercel.app')) {
-    try {
-      const parsed = new URL(targetUrl);
-      targetUrl = `${origin}${parsed.pathname}${parsed.search}`;
-    } catch {
-      targetUrl = `${origin}/`;
+  if (!route) {
+    if (productId) {
+      route = `/product/${productId}`;
+    } else if (categorySlug) {
+      route = `/category/${categorySlug}`;
+    } else if (orderId) {
+      route = `/orders/${orderId}`;
+    } else if (customLink) {
+      route = customLink;
     }
+  }
+
+  // 3. Fallback to raw link / url / click_action fields if route still not resolved
+  if (!route) {
+    const rawLink =
+      rawData.clickUrl ||
+      rawData.link ||
+      rawData.url ||
+      fcmOptions.link ||
+      fcmData.link ||
+      fcmData.url ||
+      fcmData.click_action ||
+      fcmNotif.click_action ||
+      rawData.click_action ||
+      '';
+
+    if (rawLink) {
+      try {
+        if (rawLink.startsWith('http://') || rawLink.startsWith('https://')) {
+          const parsed = new URL(rawLink);
+          if (parsed.origin === origin || parsed.hostname.includes('vercel.app') || parsed.hostname.includes('saathigro.in')) {
+            route = parsed.pathname + parsed.search + parsed.hash;
+          } else {
+            route = rawLink;
+          }
+        } else {
+          route = rawLink;
+        }
+      } catch {
+        route = rawLink;
+      }
+    }
+  }
+
+  if (!route) {
+    route = '/';
+  }
+
+  // Determine full targetUrl
+  let targetUrl = '';
+  if (route.startsWith('http://') || route.startsWith('https://')) {
+    targetUrl = route;
+  } else {
+    const normalizedRoute = route.startsWith('/') ? route : `/${route}`;
+    route = normalizedRoute;
+    targetUrl = `${origin}${normalizedRoute}`;
   }
 
   event.waitUntil((async () => {
@@ -68,24 +94,16 @@ self.addEventListener('notificationclick', (event) => {
     });
 
     if (existingClient) {
-      existingClient.postMessage({ type: 'NOTIFICATION_CLICK_NAVIGATE', url: targetUrl });
-      let navigated = false;
-      if ('navigate' in existingClient && existingClient.url !== targetUrl) {
-        try {
-          const navClient = await existingClient.navigate(targetUrl);
-          if (navClient) {
-            navigated = true;
-            return navClient.focus();
-          }
-        } catch (e) {
-          console.warn('[SW] existingClient.navigate failed:', e);
-        }
-      }
-      await existingClient.focus();
-      if (navigated) return;
+      // Post notification click message to client and focus tab without hard reloading
+      existingClient.postMessage({
+        type: 'NOTIFICATION_CLICK_NAVIGATE',
+        route: route,
+        url: targetUrl
+      });
+      return existingClient.focus();
     }
 
-    // Always fallback to openWindow so targetUrl is loaded directly
+    // When no window client exists (Cold Start), open directly to target route
     if (clients.openWindow) {
       return clients.openWindow(targetUrl);
     }
@@ -129,7 +147,8 @@ messaging.onBackgroundMessage((payload) => {
 
   const origin = self.location.origin;
   const defaultIcon = `${origin}/assets/logo_fav.png`;
-  const deepLink = payload.fcmOptions?.link || payload.data?.link || payload.data?.url || '';
+  const route = payload.data?.route || (payload.data?.productId ? `/product/${payload.data.productId}` : (payload.data?.categorySlug ? `/category/${payload.data.categorySlug}` : ''));
+  const deepLink = payload.fcmOptions?.link || payload.data?.link || payload.data?.url || (route ? `${origin}${route.startsWith('/') ? '' : '/'}${route}` : '');
 
   const options = {
     body: payload.notification?.body || payload.data?.body || '',
@@ -138,6 +157,7 @@ messaging.onBackgroundMessage((payload) => {
     vibrate: [200, 100, 200],
     data: {
       ...payload.data,
+      route: route,
       clickUrl: deepLink || `${origin}/`
     },
   };
