@@ -64,6 +64,7 @@ function SWNavigationListener() {
     useEffect(() => {
         const handleMessage = (event) => {
             const data = event.data || {};
+            console.log("[APP SW NAVIGATION] received message event.data:", data);
             let targetRoute = null;
 
             if (data.type === 'NOTIFICATION_CLICK_NAVIGATE') {
@@ -78,14 +79,19 @@ function SWNavigationListener() {
                 if (!targetRoute && fcmData.customLink) targetRoute = fcmData.customLink;
             }
 
+            console.log("[APP SW NAVIGATION] resolved targetRoute:", targetRoute);
+
             if (!targetRoute || typeof targetRoute !== 'string') return;
 
             // Debounce rapid duplicate messages (e.g. from service worker + browser window)
             const now = Date.now();
             if (lastNavRef.current.target === targetRoute && (now - lastNavRef.current.time) < 1000) {
+                console.log("[APP SW NAVIGATION] debounced duplicate navigation to:", targetRoute);
                 return;
             }
             lastNavRef.current = { target: targetRoute, time: now };
+
+            console.log("[APP SW NAVIGATION] navigating to:", targetRoute);
 
             try {
                 if (targetRoute.startsWith('http://') || targetRoute.startsWith('https://')) {
