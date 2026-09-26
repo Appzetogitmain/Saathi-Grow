@@ -72,6 +72,7 @@ const NotificationsPage = () => {
                     await axios.put(`${API_BASE_URL}/notifications/read-all`, {}, {
                         headers: { Authorization: `Bearer ${token}` }
                     });
+                    window.dispatchEvent(new Event('onNotificationsRead'));
                 }
             } catch (error) {
                 console.error('Error fetching notifications:', error);
@@ -89,6 +90,7 @@ const NotificationsPage = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+            window.dispatchEvent(new Event('onNotificationsRead'));
         } catch (error) {
             console.error('Error marking all read:', error);
         }

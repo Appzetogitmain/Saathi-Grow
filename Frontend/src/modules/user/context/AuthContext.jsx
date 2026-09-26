@@ -19,7 +19,17 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => {
         const savedUser = localStorage.getItem('saathigro_user');
-        return savedUser ? JSON.parse(savedUser) : null;
+        const savedToken = localStorage.getItem('saathigro_token');
+        if (savedUser) {
+            try {
+                const parsed = JSON.parse(savedUser);
+                if (savedToken && !parsed.token) parsed.token = savedToken;
+                return parsed;
+            } catch (e) {
+                return null;
+            }
+        }
+        return null;
     });
 
     const [token, setToken] = useState(localStorage.getItem('saathigro_token') || null);
@@ -59,7 +69,8 @@ export const AuthProvider = ({ children }) => {
         setLoading(true);
         try {
             const data = await authApi.verifyOTP(credentials);
-            setUser(data.user);
+            const userWithToken = data.user ? { ...data.user, token: data.token } : null;
+            setUser(userWithToken);
             setToken(data.token);
             setShowLoginModal(false);
             toast.success('LoggedIn successfully!');
@@ -76,7 +87,8 @@ export const AuthProvider = ({ children }) => {
         setLoading(true);
         try {
             const data = await authApi.verifyOTP(credentials);
-            setUser(data.user);
+            const userWithToken = data.user ? { ...data.user, token: data.token } : null;
+            setUser(userWithToken);
             setToken(data.token);
             setShowLoginModal(false);
             clearStoredReferralCode();
@@ -107,8 +119,9 @@ export const AuthProvider = ({ children }) => {
                 return null;
             }
             
-            setUser(data.user);
-            return data.user;
+            const userWithToken = data.user ? { ...data.user, token } : null;
+            setUser(userWithToken);
+            return userWithToken;
         } catch (error) {
             console.error('Profile refresh failed:', error);
             if (error.statusCode === 403 || error.message.includes('deactivated') || error.message.includes('Access Denied')) {
@@ -127,7 +140,8 @@ export const AuthProvider = ({ children }) => {
         setLoading(true);
         try {
             const data = await authApi.updateProfile(token, formData);
-            setUser(data.user);
+            const userWithToken = data.user ? { ...data.user, token } : null;
+            setUser(userWithToken);
             toast.success('Profile updated');
             return { success: true };
         } catch (error) {
@@ -177,9 +191,15 @@ export const AuthProvider = ({ children }) => {
         }
     }, [token, isWebView, openLogin]);
 
+    const resolvedUser = useMemo(() => {
+        if (!user) return null;
+        if (token && !user.token) return { ...user, token };
+        return user;
+    }, [user, token]);
+
     const contextValue = useMemo(() => ({
-        user,
-        token,
+        user: resolvedUser,
+        token: token || user?.token || null,
         loading,
         login,
         register,
@@ -196,7 +216,7 @@ export const AuthProvider = ({ children }) => {
         setLoading,
         protectAction
     }), [
-        user, token, loading, login, register, updateUser, logout,
+        resolvedUser, token, user?.token, loading, login, register, updateUser, logout,
         showLoginModal, openLogin, openRegister, closeLoginModal,
         loginView, refreshProfile, isWebView, protectAction
     ]);

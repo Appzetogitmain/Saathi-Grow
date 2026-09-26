@@ -16,7 +16,7 @@ import { API_BASE_URL } from '../../../../config/apiConfig';
 
 const Navbar = ({ isMenuOpen, setIsMenuOpen, customTheme }) => {
   const { cartCount, cartTotal, toggleCart } = useCart();
-  const { user, logout, protectAction } = useAuth();
+  const { user, token, logout, protectAction } = useAuth();
   const { location, openLocationModal } = useLocation();
   const { searchQuery, setSearchQuery, isSearchOverlayOpen, setIsSearchOverlayOpen, setStartVoiceSearch } = useSearch();
   const { isDarkMode, toggleTheme } = useTheme();
@@ -30,10 +30,14 @@ const Navbar = ({ isMenuOpen, setIsMenuOpen, customTheme }) => {
   // Notification count logic
   useEffect(() => {
     const fetchUnreadCount = async () => {
-      if (!user?.token) return;
+      const activeToken = token || user?.token || localStorage.getItem('saathigro_token');
+      if (!activeToken) {
+        setUnreadCount(0);
+        return;
+      }
       try {
         const res = await axios.get(`${API_BASE_URL}/notifications/unread-count`, {
-          headers: { Authorization: `Bearer ${user.token}` }
+          headers: { Authorization: `Bearer ${activeToken}` }
         });
         if (res.data.success) {
           setUnreadCount(res.data.count); // API returns 'count' not 'unreadCount'
@@ -44,19 +48,25 @@ const Navbar = ({ isMenuOpen, setIsMenuOpen, customTheme }) => {
     };
 
     fetchUnreadCount();
-    // Poll every 30 seconds so bell badge updates when complaint resolved
+    // Poll every 30 seconds so bell badge updates when complaint resolved or notification arrives
     const interval = setInterval(fetchUnreadCount, 30000);
 
     const handleFirebaseMessage = (e) => {
       setUnreadCount(prev => prev + 1);
     };
 
+    const handleNotificationsRead = () => {
+      setUnreadCount(0);
+    };
+
     window.addEventListener('onFirebaseMessage', handleFirebaseMessage);
+    window.addEventListener('onNotificationsRead', handleNotificationsRead);
     return () => {
       clearInterval(interval);
       window.removeEventListener('onFirebaseMessage', handleFirebaseMessage);
+      window.removeEventListener('onNotificationsRead', handleNotificationsRead);
     };
-  }, [user?.token]);
+  }, [token, user?.token, routerLocation.pathname]);
 
   useEffect(() => {
     let ticking = false;
@@ -147,7 +157,7 @@ const Navbar = ({ isMenuOpen, setIsMenuOpen, customTheme }) => {
           <Link to="/notifications" className="relative p-2.5 bg-black/5 dark:bg-white/5 rounded-full shadow-sm border border-black/5 active:scale-90 transition-transform">
             <Bell size={18} className="text-[#0c831f]" strokeWidth={2.5} />
             {unreadCount > 0 && (
-              <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 rounded-full border-2 border-white dark:border-black flex items-center justify-center text-[7px] text-white font-bold">
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full border-2 border-white dark:border-black flex items-center justify-center text-[9px] text-white font-bold leading-none shadow-sm">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -249,7 +259,11 @@ const Navbar = ({ isMenuOpen, setIsMenuOpen, customTheme }) => {
                 <Link to="/notifications" className="flex items-center justify-center w-[38px] h-[38px] bg-gray-100 dark:bg-white/5 text-gray-800 dark:text-[#0c831f] rounded-full hover:bg-[#0c831f] hover:text-white transition-all">
                   <Bell size={18} />
                 </Link>
-                {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-white dark:border-black shadow-lg">{unreadCount}</span>}
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center border-2 border-white dark:border-black shadow-lg font-bold leading-none">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </div>
               {user ? (
                 <Link to="/profile" className="flex items-center gap-2 px-1 py-1 pr-3 hover:bg-gray-100 dark:hover:bg-white/5 rounded-full transition-all">

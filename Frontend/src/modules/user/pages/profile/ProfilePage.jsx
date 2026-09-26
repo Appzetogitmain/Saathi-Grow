@@ -58,7 +58,22 @@ const ProfilePage = () => {
 
         fetchUnreadCount();
         const interval = setInterval(fetchUnreadCount, 30000);
-        return () => clearInterval(interval);
+
+        const handleFirebaseMessage = (e) => {
+            setUnreadCount(prev => prev + 1);
+        };
+
+        const handleNotificationsRead = () => {
+            setUnreadCount(0);
+        };
+
+        window.addEventListener('onFirebaseMessage', handleFirebaseMessage);
+        window.addEventListener('onNotificationsRead', handleNotificationsRead);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('onFirebaseMessage', handleFirebaseMessage);
+            window.removeEventListener('onNotificationsRead', handleNotificationsRead);
+        };
     }, [token]);
 
     // Edit Profile State

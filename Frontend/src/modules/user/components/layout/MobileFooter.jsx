@@ -6,17 +6,21 @@ import axios from 'axios';
 import { API_BASE_URL } from '../../../../config/apiConfig';
 
 const MobileFooter = ({ setIsMenuOpen, isBottomSheetOpen }) => {
-    const { user, showLoginModal } = useAuth();
+    const { user, token, showLoginModal } = useAuth();
     const location = useLocation();
     const [isKeyboardOpen, setIsKeyboardOpen] = React.useState(false);
     const [unreadCount, setUnreadCount] = React.useState(0);
 
     React.useEffect(() => {
         const fetchUnreadCount = async () => {
-            if (!user?.token) return;
+            const activeToken = token || user?.token || localStorage.getItem('saathigro_token');
+            if (!activeToken) {
+                setUnreadCount(0);
+                return;
+            }
             try {
                 const res = await axios.get(`${API_BASE_URL}/notifications/unread-count`, {
-                    headers: { Authorization: `Bearer ${user.token}` }
+                    headers: { Authorization: `Bearer ${activeToken}` }
                 });
                 if (res.data.success) {
                     setUnreadCount(res.data.count);
@@ -33,12 +37,18 @@ const MobileFooter = ({ setIsMenuOpen, isBottomSheetOpen }) => {
             setUnreadCount(prev => prev + 1);
         };
 
+        const handleNotificationsRead = () => {
+            setUnreadCount(0);
+        };
+
         window.addEventListener('onFirebaseMessage', handleFirebaseMessage);
+        window.addEventListener('onNotificationsRead', handleNotificationsRead);
         return () => {
             clearInterval(interval);
             window.removeEventListener('onFirebaseMessage', handleFirebaseMessage);
+            window.removeEventListener('onNotificationsRead', handleNotificationsRead);
         };
-    }, [user?.token]);
+    }, [token, user?.token, location.pathname]);
 
     React.useEffect(() => {
         let timeoutId;
