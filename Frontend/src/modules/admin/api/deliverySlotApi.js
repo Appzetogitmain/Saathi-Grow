@@ -14,9 +14,17 @@ const getToken = () => {
 
 const authHeaders = () => ({ Authorization: `Bearer ${getToken()}` });
 
-// Public: get active slots for checkout
+// Public: get active slots for checkout (legacy)
 export const getDeliverySlots = async () => {
   const { data } = await axios.get(`${API_URL}/delivery-slots`);
+  return data;
+};
+
+// Public: get multi-day delivery availability (dates, slots, capacity, holidays)
+export const getAvailableDeliveryDays = async (days = 5) => {
+  const { data } = await axios.get(`${API_URL}/delivery-slots/available-days`, {
+    params: { days }
+  });
   return data;
 };
 
@@ -47,6 +55,34 @@ export const updateDeliverySlot = async (id, slotData) => {
 // Admin: delete slot
 export const deleteDeliverySlot = async (id) => {
   const { data } = await axios.delete(`${API_URL}/delivery-slots/admin/${id}`, {
+    headers: authHeaders()
+  });
+  return data;
+};
+
+// ==========================================
+// Phase 8: Holiday Management APIs
+// ==========================================
+
+// Admin: get all holidays
+export const getAdminHolidays = async () => {
+  const { data } = await axios.get(`${API_URL}/delivery-slots/admin/holidays`, {
+    headers: authHeaders()
+  });
+  return data;
+};
+
+// Admin: add holiday
+export const addAdminHoliday = async (holidayData) => {
+  const { data } = await axios.post(`${API_URL}/delivery-slots/admin/holidays`, holidayData, {
+    headers: authHeaders()
+  });
+  return data;
+};
+
+// Admin: delete holiday
+export const deleteAdminHoliday = async (date) => {
+  const { data } = await axios.delete(`${API_URL}/delivery-slots/admin/holidays/${encodeURIComponent(date)}`, {
     headers: authHeaders()
   });
   return data;

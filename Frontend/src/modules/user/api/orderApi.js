@@ -1,4 +1,4 @@
-﻿import { API_BASE_URL } from '../../../config/apiConfig';
+import { API_BASE_URL } from '../../../config/apiConfig';
 import axios from 'axios';
 
 const API_URL = `${API_BASE_URL}/orders`;
@@ -185,6 +185,13 @@ export const fetchDeliverySlots = async () => {
   const response = await fetch(`${API_BASE_URL}/delivery-slots`);
   const data = await response.json();
   if (!response.ok) throw new Error(data.message || 'Failed to fetch delivery slots');
+  return data;
+};
+
+export const fetchAvailableDeliveryDays = async (days = 5) => {
+  const response = await fetch(`${API_BASE_URL}/delivery-slots/available-days?days=${days}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Failed to fetch delivery availability');
   return data;
 };
 

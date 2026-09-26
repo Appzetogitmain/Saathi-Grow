@@ -304,13 +304,13 @@ export const computeBillDetails = async (items, options = {}) => {
 // @desc    Initiate an online order via Razorpay
 export const createRazorpayOrder = async (req, res) => {
   try {
-    const { items, promoId, deliverySlotId, isImmediate } = req.body;
+    const { items, promoId, deliverySlotId, isImmediate, scheduledDate } = req.body;
 
     if (!items || items.length === 0) {
       return res.status(400).json({ message: 'Cart items are required to calculate bill' });
     }
 
-    const deliveryTiming = await validateAndBuildDeliveryTiming(deliverySlotId, isImmediate);
+    const deliveryTiming = await validateAndBuildDeliveryTiming(deliverySlotId, isImmediate, scheduledDate);
 
     // 1. Stock Guard (Sprint 2: enforcing safety stock threshold)
     const { storeId, storeType } = req.body;
@@ -331,7 +331,8 @@ export const createRazorpayOrder = async (req, res) => {
         purpose: 'order_payment',
         userId: String(req.user._id),
         deliveryMode: deliveryTiming.isImmediate ? 'immediate' : 'scheduled',
-        deliverySlotId: deliveryTiming.deliverySlotId ? String(deliveryTiming.deliverySlotId) : ''
+        deliverySlotId: deliveryTiming.deliverySlotId ? String(deliveryTiming.deliverySlotId) : '',
+        scheduledDate: String(deliveryTiming.deliveryWindowSnapshot?.scheduledDate || '')
       }
     };
 
@@ -400,7 +401,7 @@ export const verifyRazorpayPayment = async (req, res) => {
     }
 
     // SLOT VALIDATION
-    const deliveryTiming = await validateAndBuildDeliveryTiming(orderData.deliverySlotId, orderData.isImmediate);
+    const deliveryTiming = await validateAndBuildDeliveryTiming(orderData.deliverySlotId, orderData.isImmediate, orderData.scheduledDate);
 
     // STOCK VALIDATION (Double Check)
     await validateStockAvailability(orderData.items, orderData.storeId, orderData.storeType);
@@ -436,6 +437,10 @@ export const verifyRazorpayPayment = async (req, res) => {
     if (providerDeliverySlotId && String(providerDeliverySlotId) !== String(deliveryTiming.deliverySlotId || '')) {
       throw new PaymentVerificationError('Delivery slot does not match the paid checkout', 409, 'DELIVERY_TIMING_MISMATCH');
     }
+    const providerScheduledDate = paymentVerification.order?.notes?.scheduledDate;
+    if (providerScheduledDate && String(providerScheduledDate) !== String(deliveryTiming.deliveryWindowSnapshot?.scheduledDate || '')) {
+      throw new PaymentVerificationError('Delivery date does not match the paid checkout', 409, 'DELIVERY_TIMING_MISMATCH');
+    }
 
     // Enrich items with physicalLocation for receiver picking
     const enrichedItems = await enrichItemsWithLocations(orderData.items);
@@ -461,6 +466,10 @@ export const verifyRazorpayPayment = async (req, res) => {
       appliedPromo: computedBill.promoId,
       promoCode: computedBill.promoCode,
       discountAmount: computedBill.discountAmount,
+      // Phase 8: Persist free gift snapshot for historical accuracy (admin visibility)
+      freeGiftSnapshot: computedBill.freeGift
+        ? { title: computedBill.freeGift.title || null, description: computedBill.freeGift.description || null, image: computedBill.freeGift.image || null }
+        : null,
       vendor: orderData.vendorId,
       ...deliveryTiming,
       razorpayOrderId: razorpayOrderId,
@@ -979,7 +988,7 @@ export const createCODOrder = async (req, res) => {
     }
 
     // SLOT VALIDATION
-    const deliveryTiming = await validateAndBuildDeliveryTiming(orderData.deliverySlotId, orderData.isImmediate);
+    const deliveryTiming = await validateAndBuildDeliveryTiming(orderData.deliverySlotId, orderData.isImmediate, orderData.scheduledDate);
 
     // STOCK VALIDATION
     await validateStockAvailability(orderData.items, orderData.storeId, orderData.storeType);
@@ -1014,6 +1023,10 @@ export const createCODOrder = async (req, res) => {
       appliedPromo: computedBill.promoId,
       promoCode: computedBill.promoCode,
       discountAmount: computedBill.discountAmount,
+      // Phase 8: Persist free gift snapshot for historical accuracy (admin visibility)
+      freeGiftSnapshot: computedBill.freeGift
+        ? { title: computedBill.freeGift.title || null, description: computedBill.freeGift.description || null, image: computedBill.freeGift.image || null }
+        : null,
       vendor: orderData.vendorId,
       ...deliveryTiming,
     });
@@ -1116,7 +1129,7 @@ export const createWalletOrder = async (req, res) => {
     const user = await User.findById(req.user._id);
 
     // SLOT VALIDATION
-    const deliveryTiming = await validateAndBuildDeliveryTiming(orderData.deliverySlotId, orderData.isImmediate);
+    const deliveryTiming = await validateAndBuildDeliveryTiming(orderData.deliverySlotId, orderData.isImmediate, orderData.scheduledDate);
     // Recompute bill to guarantee security
     const computedBill = await computeBillDetails(orderData.items, {
       promoId: orderData.promoId,
@@ -1161,6 +1174,10 @@ export const createWalletOrder = async (req, res) => {
       appliedPromo: computedBill.promoId,
       promoCode: computedBill.promoCode,
       discountAmount: computedBill.discountAmount,
+      // Phase 8: Persist free gift snapshot for historical accuracy (admin visibility)
+      freeGiftSnapshot: computedBill.freeGift
+        ? { title: computedBill.freeGift.title || null, description: computedBill.freeGift.description || null, image: computedBill.freeGift.image || null }
+        : null,
       vendor: orderData.vendorId,
       ...deliveryTiming,
     });
@@ -1703,7 +1720,7 @@ export const getAllOrdersAdmin = async (req, res) => {
     // Run paginated results, total count, AND full-dataset aggregate stats in parallel
     const [orders, totalOrders, statsAgg] = await Promise.all([
       Order.find(query)
-        .select('orderId user posCustomer totalAmount status createdAt paymentMethod paymentStatus branchId vendor deliverySlot deliverySlotId deliveryWindowSnapshot isImmediate orderSource promoCode discountAmount items subTotal taxAmount deliveryFee immediateDeliveryFee baseDeliveryFee handlingFee')
+        .select('orderId user posCustomer totalAmount status createdAt paymentMethod paymentStatus branchId vendor deliverySlot deliverySlotId deliveryWindowSnapshot isImmediate orderSource promoCode discountAmount freeGiftSnapshot items subTotal taxAmount deliveryFee immediateDeliveryFee baseDeliveryFee handlingFee')
         .populate('user', 'name email phone')
         .populate('branchId', 'name')
         .populate('vendor', 'storeName')

@@ -4,6 +4,7 @@ import {
   verifyOTP,
   resendOTP,
   getUserProfile,
+  completeRegistration,
   updateProfile,
   deleteProfile
 } from '../controllers/authController.js';
@@ -13,6 +14,7 @@ import {
   validateUserOtpRequestPayload,
   validateUserOtpVerifyPayload,
   validateUserOtpResendPayload,
+  validateCompleteRegistrationPayload,
 } from '../middleware/requestValidation.js';
 
 import { userUpload } from '../config/cloudinary.js';
@@ -24,7 +26,8 @@ router.post('/request-otp', validateUserOtpRequestPayload, requestOTP);
 router.post('/verify-otp', validateUserOtpVerifyPayload, verifyOTP);
 router.post('/resend-otp', validateUserOtpResendPayload, resendOTP);
 
-// Profile Management
+// Profile Management & Customer Onboarding
+router.post('/complete-registration', protect, validateCompleteRegistrationPayload, completeRegistration);
 router.get('/profile', protect, getUserProfile);
 router.put('/profile', protect, userUpload.single('image'), updateProfile);
 router.delete('/profile', protect, deleteProfile);

@@ -64,13 +64,8 @@ export const CartProvider = ({ children }) => {
                     } catch { }
                 }
             } else {
-                // Not authenticated: restore guest cart from localStorage
-                try {
-                    const saved = localStorage.getItem('saathigro_cart');
-                    setCart(saved ? JSON.parse(saved) : []);
-                } catch {
-                    setCart([]);
-                }
+                setCart([]);
+                localStorage.removeItem('saathigro_cart');
             }
             setCartReady(true);
         };

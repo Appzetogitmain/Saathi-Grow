@@ -27,7 +27,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useStore } from '../../context/StoreContext';
 import * as orderApi from '../../api/orderApi';
 import * as walletApi from '../../api/walletApi';
-import { fetchDeliverySlots } from '../../api/orderApi';
+import { fetchDeliverySlots, fetchAvailableDeliveryDays } from '../../api/orderApi';
 import { toast } from 'react-toastify';
 import { getPublicSettings } from '../../../../common/api/settingApi';
 
@@ -43,7 +43,7 @@ const loadRazorpaySDK = () => {
 
 const CheckoutPage = () => {
     const { cartTotal = 0, clearCart, cartCount = 0, cart = [] } = useCart();
-    const { location: globalLocation, openLocationModal, savedAddresses, updateLocation } = useGlobalLocation();
+    const { location: globalLocation, openLocationModal, savedAddresses, updateLocation, addAddress } = useGlobalLocation();
     const { user, token } = useAuth();
     const { activeStore, isStoreOutOfRange, isStoreInactive, openStoreSelector } = useStore();
     const [isPlacing, setIsPlacing] = useState(false);
@@ -58,6 +58,12 @@ const CheckoutPage = () => {
     const [isImmediate, setIsImmediate] = useState(true);          // Default = Immediate
     const [loadingSlots, setLoadingSlots] = useState(true);
     const [deliverySettings, setDeliverySettings] = useState({ immediateDeliveryEnabled: true });
+
+    // Phase 8: Multi-Day Slots & Address Persistence States
+    const [availableDaysData, setAvailableDaysData] = useState(null);
+    const [selectedDate, setSelectedDate] = useState('');
+    const [selectedSavedAddressId, setSelectedSavedAddressId] = useState(null);
+    const [saveAddressToProfile, setSaveAddressToProfile] = useState(true);
     
     // Promo Code States
     const [promoInput, setPromoInput] = useState('');
@@ -102,15 +108,45 @@ const CheckoutPage = () => {
 
         const loadSlots = async () => {
             try {
-                const [slots, settings] = await Promise.all([fetchDeliverySlots(), getPublicSettings()]);
-                setDeliverySlots(slots);
-                setDeliverySettings(settings);
-                if (!settings.immediateDeliveryEnabled) {
-                    setIsImmediate(false);
-                    setSelectedSlotId(slots[0]?._id || null);
-                    setSelectedSlotLabel(slots[0]?.label || null);
+                const [availabilityRes, settings] = await Promise.all([
+                    fetchAvailableDeliveryDays(5).catch(err => {
+                        console.warn('Available days endpoint error, falling back to legacy slots:', err);
+                        return null;
+                    }),
+                    getPublicSettings()
+                ]);
+
+                setDeliverySettings(settings || { immediateDeliveryEnabled: true });
+
+                if (availabilityRes && availabilityRes.success && availabilityRes.days?.length > 0) {
+                    setAvailableDaysData(availabilityRes);
+                    const firstAvailDay = availabilityRes.days.find(d => d.isAvailable) || availabilityRes.days[0];
+                    setSelectedDate(firstAvailDay.date);
+
+                    const canImmediate = availabilityRes.immediateDelivery?.enabled ?? settings?.immediateDeliveryEnabled;
+                    if (canImmediate && firstAvailDay.isToday) {
+                        setIsImmediate(true);
+                        setSelectedSlotId(null);
+                        setSelectedSlotLabel(null);
+                    } else if (firstAvailDay.slots?.length > 0) {
+                        setIsImmediate(false);
+                        setSelectedSlotId(firstAvailDay.slots[0]._id);
+                        setSelectedSlotLabel(firstAvailDay.slots[0].label);
+                    } else {
+                        setIsImmediate(false);
+                        setSelectedSlotId(null);
+                        setSelectedSlotLabel(null);
+                    }
+                    setDeliverySlots(firstAvailDay.slots || []);
+                } else {
+                    const slots = await fetchDeliverySlots();
+                    setDeliverySlots(slots || []);
+                    if (!settings?.immediateDeliveryEnabled) {
+                        setIsImmediate(false);
+                        setSelectedSlotId(slots[0]?._id || null);
+                        setSelectedSlotLabel(slots[0]?.label || null);
+                    }
                 }
-                // Don't auto-select a slot — default is Immediate
             } catch (err) {
                 console.error('Slots fetch failed', err);
             } finally {
@@ -120,49 +156,110 @@ const CheckoutPage = () => {
         loadSlots();
     }, [token]);
 
-    // PREFILL ADDRESS LOGIC
+    // PREFILL ADDRESS LOGIC (Phase 8: Enhanced persistence & auto-select)
     useEffect(() => {
-        if (globalLocation.address === 'Select Location' && savedAddresses?.length > 0) {
-            const defaultAddr = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
-            if (defaultAddr) {
+        if (!savedAddresses || savedAddresses.length === 0) return;
+
+        // If user already selected a saved address card, keep it
+        if (selectedSavedAddressId) {
+            const current = savedAddresses.find(a => a.id === selectedSavedAddressId);
+            if (current) return;
+        }
+
+        let targetAddr = null;
+        if (globalLocation?.coordinates?.length === 2) {
+            targetAddr = savedAddresses.find((addr) => {
+                const c1 = addr.coordinates || [];
+                const c2 = globalLocation.coordinates || [];
+                return c1.length === 2 && c2.length === 2 && String(c1[0]) === String(c2[0]) && String(c1[1]) === String(c2[1]);
+            });
+        }
+
+        // Fallback: pick default or first saved address even if coordinates don't match!
+        if (!targetAddr) {
+            targetAddr = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
+        }
+
+        if (targetAddr) {
+            setSelectedSavedAddressId(targetAddr.id);
+            setShippingAddressForm(prev => ({
+                ...prev,
+                street: targetAddr.address || prev.street,
+                city: targetAddr.city || prev.city,
+                state: targetAddr.state || prev.state,
+                zipCode: targetAddr.zipCode || prev.zipCode
+            }));
+
+            if (globalLocation.address === 'Select Location') {
                 updateLocation({
-                    address: defaultAddr.address,
-                    city: defaultAddr.city,
-                    state: defaultAddr.state || '',
-                    zipCode: defaultAddr.zipCode || '',
-                    fullAddress: defaultAddr.fullAddress || [defaultAddr.address, defaultAddr.city, defaultAddr.state, defaultAddr.zipCode].filter(Boolean).join(', '),
-                    coordinates: defaultAddr.coordinates
+                    address: targetAddr.address,
+                    city: targetAddr.city,
+                    state: targetAddr.state || '',
+                    zipCode: targetAddr.zipCode || '',
+                    fullAddress: targetAddr.fullAddress || [targetAddr.address, targetAddr.city, targetAddr.state, targetAddr.zipCode].filter(Boolean).join(', '),
+                    coordinates: targetAddr.coordinates
                 });
             }
         }
+    }, [savedAddresses]);
 
-        const shouldKeepStreetBlank = isCityOnlySelection(globalLocation);
-        setShippingAddressForm((prev) => ({
+    const handleSelectSavedAddress = (addr) => {
+        setSelectedSavedAddressId(addr.id);
+        setShippingAddressForm(prev => ({
             ...prev,
-            street: shouldKeepStreetBlank ? '' : (globalLocation.address || ''),
-            city: globalLocation.city || '',
-            state: globalLocation.state || '',
-            zipCode: globalLocation.zipCode || ''
+            street: addr.address || '',
+            city: addr.city || '',
+            state: addr.state || '',
+            zipCode: addr.zipCode || ''
         }));
-    }, [savedAddresses, globalLocation.address, globalLocation.city, globalLocation.state, globalLocation.zipCode, updateLocation]);
+        if (addr.coordinates) {
+            updateLocation({
+                address: addr.address,
+                city: addr.city,
+                state: addr.state || '',
+                zipCode: addr.zipCode || '',
+                fullAddress: addr.fullAddress || [addr.address, addr.city, addr.state, addr.zipCode].filter(Boolean).join(', '),
+                coordinates: addr.coordinates
+            });
+        }
+    };
 
-    useEffect(() => {
-        if (!savedAddresses?.length || !globalLocation?.coordinates) return;
-        const matched = savedAddresses.find((addr) => {
-            const c1 = addr.coordinates || [];
-            const c2 = globalLocation.coordinates || [];
-            return c1.length === 2 && c2.length === 2 && String(c1[0]) === String(c2[0]) && String(c1[1]) === String(c2[1]);
-        });
-        if (!matched) return;
+    const handleSelectDate = (dateObj) => {
+        setSelectedDate(dateObj.date);
+        setDeliverySlots(dateObj.slots || []);
 
-        setShippingAddressForm((prev) => ({
-            ...prev,
-            street: matched.address || prev.street,
-            city: matched.city || prev.city,
-            state: matched.state || prev.state,
-            zipCode: matched.zipCode || prev.zipCode
-        }));
-    }, [savedAddresses, globalLocation.coordinates]);
+        if (dateObj.isHoliday) {
+            setIsImmediate(false);
+            setSelectedSlotId(null);
+            setSelectedSlotLabel(null);
+            return;
+        }
+
+        const isToday = dateObj.isToday;
+        const immediatePossible = isToday && (availableDaysData?.immediateDelivery?.enabled ?? deliverySettings.immediateDeliveryEnabled);
+
+        if (isImmediate && !immediatePossible) {
+            setIsImmediate(false);
+            if (dateObj.slots?.length > 0) {
+                setSelectedSlotId(dateObj.slots[0]._id);
+                setSelectedSlotLabel(dateObj.slots[0].label);
+            } else {
+                setSelectedSlotId(null);
+                setSelectedSlotLabel(null);
+            }
+        } else if (!isImmediate) {
+            if (dateObj.slots?.length > 0) {
+                const exists = dateObj.slots.find(s => s._id === selectedSlotId);
+                if (!exists) {
+                    setSelectedSlotId(dateObj.slots[0]._id);
+                    setSelectedSlotLabel(dateObj.slots[0].label);
+                }
+            } else {
+                setSelectedSlotId(null);
+                setSelectedSlotLabel(null);
+            }
+        }
+    };
 
     useEffect(() => {
         const fetchBill = async () => {
@@ -280,7 +377,13 @@ const CheckoutPage = () => {
             return;
         }
 
-        if (isImmediate && !deliverySettings.immediateDeliveryEnabled) {
+        const currentSelectedDay = availableDaysData?.days?.find(d => d.date === selectedDate) || null;
+        if (currentSelectedDay?.isHoliday) {
+            toast.error(`The shop is closed on the selected holiday (${currentSelectedDay.holidayName || 'Holiday'}). Please choose another date.`);
+            return;
+        }
+
+        if (isImmediate && !(availableDaysData?.immediateDelivery?.enabled ?? deliverySettings.immediateDeliveryEnabled)) {
             toast.error('Immediate delivery is currently unavailable. Please select a delivery slot.');
             return;
         }
@@ -321,19 +424,54 @@ const CheckoutPage = () => {
             totalAmount: totalToPay,
             deliverySlot: isImmediate ? 'Immediate' : selectedSlotLabel,   // legacy label for display
             deliverySlotId: isImmediate ? null : selectedSlotId,            // NEW: ObjectId ref
+            scheduledDate: isImmediate ? (availableDaysData?.todayDate || undefined) : selectedDate, // Phase 8 multi-day scheduled date
             isImmediate,                                                     // NEW: flag
             storeId: activeStore?.id,
             storeType: activeStore?.type,
             promoId: appliedPromo?._id
         };
 
+        const maybeSaveAddressAfterOrder = async () => {
+            if (!token || !saveAddressToProfile) return;
+            const street = shippingAddressForm.street?.trim();
+            const city = shippingAddressForm.city?.trim();
+            const zipCode = shippingAddressForm.zipCode?.trim();
+            if (!street || !city) return;
+
+            const exists = savedAddresses?.some(a =>
+                a.address?.trim().toLowerCase() === street.toLowerCase() &&
+                a.city?.trim().toLowerCase() === city.toLowerCase()
+            );
+            if (exists) return;
+
+            try {
+                if (typeof addAddress === 'function') {
+                    await addAddress({
+                        type: 'Home',
+                        name: user?.name || '',
+                        phone: user?.phone || '',
+                        address: street,
+                        city: city,
+                        state: shippingAddressForm.state?.trim() || '',
+                        zipCode: zipCode || '',
+                        coordinates: globalLocation?.coordinates || null
+                    });
+                }
+            } catch (saveErr) {
+                // Address save failure MUST NEVER affect a successful order
+                console.warn('Silent address save warning:', saveErr);
+            }
+        };
+
         try {
             if (paymentMethod === 'cod') {
                 const res = await orderApi.createCODOrder(token, orderData);
+                await maybeSaveAddressAfterOrder();
                 clearCart();
                 navigate('/order-success', { state: { orderId: res.order._id } });
             } else if (paymentMethod === 'wallet') {
                 const res = await orderApi.createWalletOrder(token, orderData);
+                await maybeSaveAddressAfterOrder();
                 clearCart();
                 navigate('/order-success', { state: { orderId: res.order._id } });
             } else {
@@ -361,7 +499,11 @@ const CheckoutPage = () => {
                     appliedPromo?._id,
                     activeStore?.id,
                     activeStore?.type,
-                    { deliverySlotId: orderData.deliverySlotId, isImmediate: orderData.isImmediate }
+                    {
+                        deliverySlotId: orderData.deliverySlotId,
+                        isImmediate: orderData.isImmediate,
+                        scheduledDate: orderData.scheduledDate
+                    }
                 );
 
                 const options = {
@@ -379,6 +521,7 @@ const CheckoutPage = () => {
                                 razorpaySignature: response.razorpay_signature,
                                 orderData
                             });
+                            await maybeSaveAddressAfterOrder();
                             clearCart();
                             navigate('/order-success', { state: { orderId: res.order._id } });
                         } catch (verifyErr) {
@@ -416,6 +559,8 @@ const CheckoutPage = () => {
 
         setIsPlacing(false);
     };
+
+    const currentSelectedDay = availableDaysData?.days?.find(d => d.date === selectedDate) || (availableDaysData?.days?.[0] ?? null);
 
     return (
         <div className="min-h-screen bg-gradient-to-r from-[#e8f5e9] to-[#ffffff] dark:from-[#141414] dark:to-[#141414] md:bg-white md:bg-none md:dark:bg-black transition-colors duration-300 pb-32 pt-0 relative">
@@ -507,6 +652,46 @@ const CheckoutPage = () => {
                             </div>
                         )}
 
+                        {/* Phase 8: Saved Addresses Selection Chips */}
+                        {savedAddresses?.length > 0 && (
+                            <div className="mb-3.5 pt-1">
+                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-2">Saved Addresses</span>
+                                <div className="flex flex-wrap gap-2">
+                                    {savedAddresses.map((addr) => {
+                                        const isSelected = selectedSavedAddressId === addr.id;
+                                        return (
+                                            <button
+                                                key={addr.id}
+                                                type="button"
+                                                onClick={() => handleSelectSavedAddress(addr)}
+                                                className={`px-3 py-1.5 rounded-xl text-left border text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                                                    isSelected
+                                                        ? 'border-[#0c831f] bg-green-50 dark:bg-green-500/10 text-[#0c831f]'
+                                                        : 'border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:border-gray-300'
+                                                }`}
+                                            >
+                                                <MapPin size={12} className={isSelected ? 'text-[#0c831f]' : 'text-gray-400'} />
+                                                <span>{addr.type || 'Address'}</span>
+                                                {addr.isDefault && (
+                                                    <span className="text-[8px] bg-green-100 text-[#0c831f] px-1 py-0.2 rounded font-black">DEF</span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedSavedAddressId(null);
+                                            setShippingAddressForm({ street: '', city: globalLocation.city || '', state: globalLocation.state || '', zipCode: '', landmark: '' });
+                                        }}
+                                        className="px-3 py-1.5 rounded-xl border border-dashed border-gray-300 dark:border-white/20 text-gray-500 text-[11px] font-bold hover:border-gray-400 transition-all"
+                                    >
+                                        + Enter New
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             <div className="sm:col-span-2">
                                 <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Street / House No</label>
@@ -559,10 +744,23 @@ const CheckoutPage = () => {
                                 />
                             </div>
                         </div>
+
+                        {/* Phase 8: Save Address to Profile Checkbox */}
+                        <label className="flex items-center gap-2.5 mt-3.5 cursor-pointer select-none">
+                            <input
+                                type="checkbox"
+                                checked={saveAddressToProfile}
+                                onChange={(e) => setSaveAddressToProfile(e.target.checked)}
+                                className="w-4 h-4 rounded text-[#0c831f] focus:ring-[#0c831f] accent-[#0c831f] cursor-pointer"
+                            />
+                            <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300">
+                                Save this address to my profile for future orders
+                            </span>
+                        </label>
                     </div>
                 </div>
 
-                {/* Delivery Timing Section */}
+                {/* Delivery Timing Section (Phase 8: Multi-Day Slots & Holidays) */}
                 <div className="mb-10">
                     <div className="flex items-center gap-2 mb-4 px-1">
                         <Calendar size={14} className="text-[#0c831f]" />
@@ -576,57 +774,126 @@ const CheckoutPage = () => {
                             ))}
                         </div>
                     ) : (
-                        <div className="flex flex-wrap gap-2 px-1">
-                            {deliverySettings.immediateDeliveryEnabled && <div
-                                onClick={() => { setIsImmediate(true); setSelectedSlotId(null); setSelectedSlotLabel(null); }}
-                                className={`px-4 py-2.5 rounded-2xl cursor-pointer border-2 transition-all flex flex-col items-center min-w-[110px] ${isImmediate
-                                    ? 'border-[#0c831f] bg-green-50 dark:bg-green-500/10'
-                                    : 'border-gray-100 dark:border-white/5 bg-transparent hover:border-gray-200'
-                                    }`}
-                            >
-                                <span className={`text-[11px] font-black ${isImmediate ? 'text-[#0c831f]' : 'text-gray-900 dark:text-gray-200'}`}>⚡ Express</span>
-                                <span className="text-[8px] font-bold text-gray-400 mt-0.5 tracking-tight">
-                                    {deliverySettings.immediateDeliveryFee > 0 ? `+₹${deliverySettings.immediateDeliveryFee} Surcharge` : 'ASAP Delivery'}
-                                </span>
-                            </div>}
-
-                            {/* Slot options */}
-                            {deliverySlots.map((slot) => (
-                                <div
-                                    key={slot._id}
-                                    onClick={() => { setIsImmediate(false); setSelectedSlotId(slot._id); setSelectedSlotLabel(slot.label); }}
-                                    className={`px-4 py-2.5 rounded-2xl cursor-pointer border-2 transition-all flex flex-col items-center min-w-[110px] ${!isImmediate && selectedSlotId === slot._id
-                                        ? 'border-[#0c831f] bg-green-50 dark:bg-green-500/10'
-                                        : 'border-gray-100 dark:border-white/5 bg-transparent hover:border-gray-200'
-                                        }`}
-                                >
-                                    <span className={`text-[10px] font-black ${!isImmediate && selectedSlotId === slot._id ? 'text-[#0c831f]' : 'text-gray-900 dark:text-gray-200'
-                                        }`}>
-                                        {slot.label}
-                                    </span>
-                                    <span className="text-[8px] font-bold text-gray-400 mt-0.5 tracking-tight">
-                                        {slot.startTime} – {slot.endTime}
-                                    </span>
+                        <div className="space-y-4">
+                            {/* Date Chips Row */}
+                            {availableDaysData?.days?.length > 0 && (
+                                <div className="px-1">
+                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Select Delivery Date</p>
+                                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                                        {availableDaysData.days.map((d) => {
+                                            const isSelected = selectedDate === d.date;
+                                            return (
+                                                <button
+                                                    key={d.date}
+                                                    type="button"
+                                                    onClick={() => handleSelectDate(d)}
+                                                    className={`px-3.5 py-2 rounded-2xl border-2 transition-all flex flex-col items-center shrink-0 min-w-[95px] ${
+                                                        isSelected
+                                                            ? 'border-[#0c831f] bg-green-50 dark:bg-green-500/10'
+                                                            : d.isHoliday
+                                                            ? 'border-amber-200 dark:border-amber-900/30 bg-amber-50/50 dark:bg-amber-950/20'
+                                                            : !d.isAvailable
+                                                            ? 'border-gray-200 dark:border-white/5 opacity-60 bg-transparent'
+                                                            : 'border-gray-100 dark:border-white/5 bg-transparent hover:border-gray-200'
+                                                    }`}
+                                                >
+                                                    <span className={`text-[11px] font-black ${isSelected ? 'text-[#0c831f]' : d.isHoliday ? 'text-amber-700 dark:text-amber-400' : 'text-gray-900 dark:text-gray-200'}`}>
+                                                        {d.isToday ? 'Today' : d.isTomorrow ? 'Tomorrow' : d.dayName}
+                                                    </span>
+                                                    <span className="text-[9px] font-bold text-gray-400 mt-0.5">
+                                                        {d.dateLabel}
+                                                    </span>
+                                                    {d.isHoliday && (
+                                                        <span className="mt-1 text-[8px] font-black uppercase text-amber-600 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.2 rounded-full">
+                                                            Closed
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            ))}
-
-                            {deliverySlots.length === 0 && (
-                                <p className="text-[10px] text-gray-400 font-medium px-1 pt-1">
-                                    {deliverySettings.immediateDeliveryEnabled
-                                        ? 'No scheduled slots are currently available.'
-                                        : 'Delivery is currently unavailable. Please try again later.'}
-                                </p>
                             )}
+
+                            {/* Holiday Notice for Selected Date */}
+                            {currentSelectedDay?.isHoliday && (
+                                <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-300 flex items-start gap-2.5 mx-1">
+                                    <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-xs font-black">Shop Closed ({currentSelectedDay.holidayName || 'Holiday'})</p>
+                                        <p className="text-[10px] font-medium mt-0.5 text-amber-700/80 dark:text-amber-400/80">
+                                            {currentSelectedDay.holidayReason || 'Deliveries are unavailable on this date. Please pick another delivery date above.'}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Slots for Selected Date */}
+                            {!currentSelectedDay?.isHoliday && (
+                                <div className="flex flex-wrap gap-2 px-1">
+                                    {/* Immediate Delivery Option: ONLY if selected date is today and immediate is enabled */}
+                                    {currentSelectedDay?.isToday && (availableDaysData?.immediateDelivery?.enabled ?? deliverySettings.immediateDeliveryEnabled) && (
+                                        <div
+                                            onClick={() => { setIsImmediate(true); setSelectedSlotId(null); setSelectedSlotLabel(null); }}
+                                            className={`px-4 py-2.5 rounded-2xl cursor-pointer border-2 transition-all flex flex-col items-center min-w-[110px] ${
+                                                isImmediate
+                                                    ? 'border-[#0c831f] bg-green-50 dark:bg-green-500/10'
+                                                    : 'border-gray-100 dark:border-white/5 bg-transparent hover:border-gray-200'
+                                            }`}
+                                        >
+                                            <span className={`text-[11px] font-black ${isImmediate ? 'text-[#0c831f]' : 'text-gray-900 dark:text-gray-200'}`}>⚡ Express</span>
+                                            <span className="text-[8px] font-bold text-gray-400 mt-0.5 tracking-tight">
+                                                {(availableDaysData?.immediateDelivery?.fee ?? deliverySettings.immediateDeliveryFee) > 0
+                                                    ? `+₹${availableDaysData?.immediateDelivery?.fee ?? deliverySettings.immediateDeliveryFee} Surcharge`
+                                                    : 'ASAP Delivery'}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* Slot options for this date */}
+                                    {deliverySlots.map((slot) => {
+                                        const isSlotActive = !isImmediate && selectedSlotId === slot._id;
+                                        return (
+                                            <div
+                                                key={slot._id}
+                                                onClick={() => { setIsImmediate(false); setSelectedSlotId(slot._id); setSelectedSlotLabel(slot.label); }}
+                                                className={`px-4 py-2.5 rounded-2xl cursor-pointer border-2 transition-all flex flex-col items-center min-w-[110px] ${
+                                                    isSlotActive
+                                                        ? 'border-[#0c831f] bg-green-50 dark:bg-green-500/10'
+                                                        : 'border-gray-100 dark:border-white/5 bg-transparent hover:border-gray-200'
+                                                }`}
+                                            >
+                                                <span className={`text-[10px] font-black ${isSlotActive ? 'text-[#0c831f]' : 'text-gray-900 dark:text-gray-200'}`}>
+                                                    {slot.label}
+                                                </span>
+                                                <span className="text-[8px] font-bold text-gray-400 mt-0.5 tracking-tight">
+                                                    {slot.startTime} – {slot.endTime}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {deliverySlots.length === 0 && !isImmediate && (
+                                        <p className="text-[10px] text-gray-400 font-medium px-1 pt-1">
+                                            {currentSelectedDay?.isToday
+                                                ? 'All delivery shifts for today have passed. Please select Tomorrow or another date above.'
+                                                : 'No delivery shifts available on this date. Please select another date.'}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Chosen timing summary */}
+                            <p className="text-[9px] font-bold text-gray-400 mt-3 px-1 uppercase tracking-wider">
+                                {isImmediate && (availableDaysData?.immediateDelivery?.enabled ?? deliverySettings.immediateDeliveryEnabled)
+                                    ? '⚡ Your order will be dispatched as soon as it is ready today'
+                                    : selectedSlotLabel
+                                    ? `🕐 Scheduled for delivery on ${currentSelectedDay?.displayLabel || selectedDate} during: ${selectedSlotLabel}`
+                                    : 'Select an available delivery window'
+                                }
+                            </p>
                         </div>
                     )}
-
-                    {/* Chosen timing summary */}
-                    <p className="text-[9px] font-bold text-gray-400 mt-3 px-1 uppercase tracking-wider">
-                        {isImmediate && deliverySettings.immediateDeliveryEnabled
-                            ? '⚡ Your order will be dispatched as soon as it is ready'
-                            : selectedSlotLabel ? `🕐 Scheduled for delivery during: ${selectedSlotLabel}` : 'Select an available delivery window'
-                        }
-                    </p>
                 </div>
 
                 <div className="mb-10">

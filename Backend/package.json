@@ -15,7 +15,8 @@
     "seed:admin": "node seed_admin.js",
     "test": "node --test test/*.test.js",
     "audit:wallet-topups": "node scripts/audit-wallet-topups.mjs",
-    "migrate:payment-indexes": "node scripts/create-payment-security-indexes.mjs"
+    "migrate:payment-indexes": "node scripts/create-payment-security-indexes.mjs",
+    "migrate:registration-flag": "node scripts/migrate-registration-flag.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

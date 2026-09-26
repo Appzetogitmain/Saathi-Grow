@@ -133,3 +133,28 @@ export const getStrategicAnalytics = async (token, params = {}) => {
     throw error.response?.data || error;
   }
 };
+
+export const getSearchAnalytics = async (token, params = {}) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/admin/search-logs`, {
+      headers: { Authorization: `Bearer ${token}` },
+      params
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
+
+export const exportSearchAnalyticsExcel = async (token, params = {}) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/admin/search-logs/export`, {
+      headers: { Authorization: `Bearer ${token}` },
+      params,
+      responseType: 'blob'
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};

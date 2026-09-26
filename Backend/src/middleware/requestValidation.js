@@ -108,3 +108,41 @@ export const validateFcmUpdatePayload = (req, res, next) => {
   if (platform) req.body.platform = platform;
   next();
 };
+
+export const validateCompleteRegistrationPayload = (req, res, next) => {
+  const nameRaw = req.body?.name;
+  const emailRaw = req.body?.email;
+
+  if (!nameRaw || typeof nameRaw !== 'string' || !nameRaw.trim()) {
+    return sendError(req, res, 400, 'Full name is required');
+  }
+
+  const trimmedName = nameRaw.trim();
+  if (trimmedName.length < 2 || trimmedName.length > 60) {
+    return sendError(req, res, 400, 'Full name must be between 2 and 60 characters');
+  }
+
+  const nameRegex = /^[a-zA-Z\s]+$/;
+  if (!nameRegex.test(trimmedName)) {
+    return sendError(req, res, 400, 'Full name should only contain letters and spaces, without numbers or special characters');
+  }
+
+  let trimmedEmail = undefined;
+  if (emailRaw && typeof emailRaw === 'string' && emailRaw.trim()) {
+    trimmedEmail = emailRaw.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      return sendError(req, res, 400, 'Please provide a valid email address');
+    }
+  }
+
+  req.body.name = trimmedName;
+  if (trimmedEmail) {
+    req.body.email = trimmedEmail;
+  } else {
+    delete req.body.email;
+  }
+
+  next();
+};
+

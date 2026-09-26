@@ -31,6 +31,11 @@ const userSchema = new mongoose.Schema({
         enum: ['user', 'admin', 'staff', 'rider'],
         default: 'user'
     },
+    isRegistrationComplete: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
     profileImage: {
         type: String,
         default: null

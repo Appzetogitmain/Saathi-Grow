@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }) => {
         verifyAuth();
     }, []); // Only on mount
 
-    const login = useCallback(async (credentials) => {
+    const verifyOtp = useCallback(async (credentials) => {
         setLoading(true);
         try {
             const data = await authApi.verifyOTP(credentials);
@@ -73,8 +73,18 @@ export const AuthProvider = ({ children }) => {
             setUser(userWithToken);
             setToken(data.token);
             setShowLoginModal(false);
-            toast.success('LoggedIn successfully!');
-            return { success: true };
+            if (data.isNewUser) {
+                clearStoredReferralCode();
+            } else {
+                toast.success('Logged in successfully!');
+            }
+            return {
+                success: true,
+                isNewUser: Boolean(data.isNewUser),
+                isRegistrationComplete: data.isRegistrationComplete ?? data.user?.isRegistrationComplete ?? true,
+                user: userWithToken,
+                token: data.token
+            };
         } catch (error) {
             toast.error(error.message);
             return { success: false, message: error.message };
@@ -83,24 +93,29 @@ export const AuthProvider = ({ children }) => {
         }
     }, []);
 
+    const login = useCallback(async (credentials) => {
+        return await verifyOtp(credentials);
+    }, [verifyOtp]);
+
     const register = useCallback(async (credentials) => {
+        return await verifyOtp(credentials);
+    }, [verifyOtp]);
+
+    const completeRegistration = useCallback(async (formData) => {
         setLoading(true);
         try {
-            const data = await authApi.verifyOTP(credentials);
-            const userWithToken = data.user ? { ...data.user, token: data.token } : null;
+            const data = await authApi.completeRegistration(token, formData);
+            const userWithToken = data.user ? { ...data.user, token } : null;
             setUser(userWithToken);
-            setToken(data.token);
-            setShowLoginModal(false);
-            clearStoredReferralCode();
-            toast.success('Account created successfully!');
-            return { success: true };
+            toast.success('Welcome to Saathi-Grow!');
+            return { success: true, user: userWithToken };
         } catch (error) {
             toast.error(error.message);
             return { success: false, message: error.message };
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [token]);
 
     const isFetchingProfile = useRef(false);
 
@@ -155,7 +170,14 @@ export const AuthProvider = ({ children }) => {
     const logout = useCallback(() => {
         setUser(null);
         setToken(null);
-        localStorage.removeItem('saathigro_cart'); // clear stale cart data on logout
+        // Clear all customer-specific credentials and caches
+        localStorage.removeItem('saathigro_token');
+        localStorage.removeItem('saathigro_user');
+        localStorage.removeItem('saathigro_cart');
+        localStorage.removeItem('saathigro_saved_addresses');
+        localStorage.removeItem('saathigro_wishlist');
+        // Geographic store and device location are intentionally preserved:
+        // 'saathigro_location', 'saathigro_activeStore'
         toast.info('Logged out');
     }, []);
 
@@ -201,6 +223,8 @@ export const AuthProvider = ({ children }) => {
         user: resolvedUser,
         token: token || user?.token || null,
         loading,
+        verifyOtp,
+        completeRegistration,
         login,
         register,
         updateUser,
@@ -216,7 +240,7 @@ export const AuthProvider = ({ children }) => {
         setLoading,
         protectAction
     }), [
-        resolvedUser, token, user?.token, loading, login, register, updateUser, logout,
+        resolvedUser, token, user?.token, loading, verifyOtp, completeRegistration, login, register, updateUser, logout,
         showLoginModal, openLogin, openRegister, closeLoginModal,
         loginView, refreshProfile, isWebView, protectAction
     ]);

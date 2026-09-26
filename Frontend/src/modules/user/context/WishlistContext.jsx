@@ -48,20 +48,13 @@ export const WishlistProvider = ({ children }) => {
                 } catch (err) {
                     console.error('Failed to fetch user wishlist:', err);
                 }
+            } else {
+                setWishlist([]);
+                localStorage.removeItem('saathigro_wishlist');
             }
         };
         fetchRemoteWishlist();
     }, [token, activeStore?.id]);
-
-    useEffect(() => {
-        if (!token) {
-            try {
-                localStorage.setItem('saathigro_wishlist', JSON.stringify(wishlist));
-            } catch (error) {
-                console.error('Error saving wishlist to localStorage:', error);
-            }
-        }
-    }, [wishlist, token]);
 
     const addToWishlist = async (product) => {
         if (!isInWishlist(product.id || product._id)) {

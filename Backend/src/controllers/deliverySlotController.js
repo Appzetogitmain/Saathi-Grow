@@ -1,6 +1,6 @@
 import DeliverySlot from '../models/DeliverySlot.js';
 import Order from '../models/Order.js';
-import { getDeliverySettings, getZonedDateParts, isSlotBookable, parseTimeToMinutes } from '../services/deliveryTimingService.js';
+import { getDeliverySettings, getZonedDateParts, isSlotBookable, parseTimeToMinutes, getAvailableDays } from '../services/deliveryTimingService.js';
 
 const validateSlotInput = ({ startTime, endTime, label, maxOrders }) => {
   const start = parseTimeToMinutes(startTime);
@@ -110,5 +110,123 @@ export const deleteDeliverySlot = async (req, res) => {
     res.json({ message: 'Slot removed' });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// ==========================================
+// Phase 8: Multi-Day Slots & Holiday Management
+// ==========================================
+
+// @desc    Get multi-day delivery availability (dates, slots, capacity, holidays)
+// @route   GET /api/delivery-slots/available-days
+// @access  Public
+export const getAvailableDeliveryDays = async (req, res) => {
+  try {
+    const daysToLookAhead = req.query.days ? parseInt(req.query.days, 10) : 5;
+    const availability = await getAvailableDays(daysToLookAhead);
+    res.json({
+      success: true,
+      ...availability
+    });
+  } catch (error) {
+    console.error('Failed to get available delivery days:', error);
+    res.status(500).json({ message: error.message || 'Failed to calculate delivery availability' });
+  }
+};
+
+// @desc    Get all shop holidays (Admin)
+// @route   GET /api/admin/delivery-slots/holidays
+// @access  Private (Admin)
+export const getHolidaysAdmin = async (req, res) => {
+  try {
+    const settings = await getDeliverySettings();
+    const holidays = (settings.holidays || []).sort((a, b) => a.date.localeCompare(b.date));
+    res.json({
+      success: true,
+      holidays
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Failed to fetch holidays' });
+  }
+};
+
+// @desc    Add a shop holiday (Admin)
+// @route   POST /api/admin/delivery-slots/holidays
+// @access  Private (Admin)
+export const addHolidayAdmin = async (req, res) => {
+  try {
+    const { date, name, reason } = req.body;
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(String(date).trim())) {
+      return res.status(400).json({ message: 'Valid holiday date in YYYY-MM-DD format is required.' });
+    }
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ message: 'Holiday name is required.' });
+    }
+
+    const trimmedDate = String(date).trim();
+    const trimmedName = String(name).trim();
+    const trimmedReason = String(reason || '').trim();
+
+    const settings = await getDeliverySettings();
+    if (!Array.isArray(settings.holidays)) {
+      settings.holidays = [];
+    }
+
+    const existingIndex = settings.holidays.findIndex(h => h.date === trimmedDate);
+    if (existingIndex >= 0) {
+      return res.status(400).json({ message: `A holiday is already scheduled for ${trimmedDate} (${settings.holidays[existingIndex].name}).` });
+    }
+
+    settings.holidays.push({
+      date: trimmedDate,
+      name: trimmedName,
+      reason: trimmedReason
+    });
+
+    await settings.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Holiday added successfully',
+      holidays: settings.holidays.sort((a, b) => a.date.localeCompare(b.date))
+    });
+  } catch (error) {
+    console.error('Error adding holiday:', error);
+    res.status(500).json({ message: error.message || 'Failed to add holiday' });
+  }
+};
+
+// @desc    Delete a shop holiday (Admin)
+// @route   DELETE /api/admin/delivery-slots/holidays/:date
+// @access  Private (Admin)
+export const deleteHolidayAdmin = async (req, res) => {
+  try {
+    const { date } = req.params;
+    if (!date) {
+      return res.status(400).json({ message: 'Holiday date parameter is required.' });
+    }
+
+    const settings = await getDeliverySettings();
+    if (!Array.isArray(settings.holidays)) {
+      settings.holidays = [];
+    }
+
+    const initialLength = settings.holidays.length;
+    settings.holidays = settings.holidays.filter(h => h.date !== date.trim());
+
+    if (settings.holidays.length === initialLength) {
+      return res.status(404).json({ message: `No holiday found for date ${date}.` });
+    }
+
+    await settings.save();
+
+    res.json({
+      success: true,
+      message: 'Holiday removed successfully',
+      holidays: settings.holidays.sort((a, b) => a.date.localeCompare(b.date))
+    });
+  } catch (error) {
+    console.error('Error deleting holiday:', error);
+    res.status(500).json({ message: error.message || 'Failed to delete holiday' });
   }
 };

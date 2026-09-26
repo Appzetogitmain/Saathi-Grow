@@ -162,6 +162,9 @@ export const LocationProvider = ({ children }) => {
                 } catch (err) {
                     console.error('Failed to fetch user addresses:', err);
                 }
+            } else {
+                setSavedAddresses([]);
+                localStorage.removeItem('saathigro_saved_addresses');
             }
         };
         fetchRemoteAddresses();
@@ -170,14 +173,6 @@ export const LocationProvider = ({ children }) => {
     useEffect(() => {
         localStorage.setItem('saathigro_location', JSON.stringify(location));
     }, [location]);
-
-    useEffect(() => {
-        // Only save to localStorage offline sync if user is NOT logged in.
-        // Or keep sync active, since it safely overwrites on remote fetch
-        if (!token) {
-            localStorage.setItem('saathigro_saved_addresses', JSON.stringify(savedAddresses));
-        }
-    }, [savedAddresses, token]);
 
     // Automatically prompt for location permission modal ONLY if user has no location set yet
     useEffect(() => {

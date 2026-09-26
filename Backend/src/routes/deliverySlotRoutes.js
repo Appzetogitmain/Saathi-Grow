@@ -4,20 +4,30 @@ import {
   getAllSlotsAdmin,
   createDeliverySlot,
   updateDeliverySlot,
-  deleteDeliverySlot
+  deleteDeliverySlot,
+  getAvailableDeliveryDays,
+  getHolidaysAdmin,
+  addHolidayAdmin,
+  deleteHolidayAdmin
 } from '../controllers/deliverySlotController.js';
 import { protectAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// Public route for users during checkout
+// Public routes for users during checkout
 router.get('/', getDeliverySlots);
+router.get('/available-days', getAvailableDeliveryDays);
 
-// Admin routes
+// Admin routes (Protected)
 router.use(protectAdmin);
 router.get('/admin', getAllSlotsAdmin);
 router.post('/admin', createDeliverySlot);
 router.put('/admin/:id', updateDeliverySlot);
 router.delete('/admin/:id', deleteDeliverySlot);
+
+// Admin Holiday Management routes
+router.get('/admin/holidays', getHolidaysAdmin);
+router.post('/admin/holidays', addHolidayAdmin);
+router.delete('/admin/holidays/:date', deleteHolidayAdmin);
 
 export default router;

@@ -23,7 +23,7 @@ import {
   getOrdersByTag,
   submitOrderFeedback
 } from '../controllers/orderController.js';
-import { protect, protectAdmin, requirePermission } from '../middleware/authMiddleware.js';
+import { protect, protectAdmin, requirePermission, requireRegistrationComplete } from '../middleware/authMiddleware.js';
 import { sensitiveAdminActionLimiter, auditAction, idempotencyGuard } from '../middleware/securityMiddleware.js';
 
 import { returnUpload } from '../config/cloudinary.js';
@@ -42,10 +42,10 @@ router.put('/:id/tag', protect, setOrderTag);
 router.delete('/:id/tag', protect, removeOrderTag);
 router.post('/:id/feedback', protect, submitOrderFeedback);
 
-router.post('/razorpay', protect, createRazorpayOrder);
-router.post('/verify', protect, verifyRazorpayPayment);
-router.post('/cod', protect, createCODOrder);
-router.post('/wallet', protect, createWalletOrder);
+router.post('/razorpay', protect, requireRegistrationComplete, createRazorpayOrder);
+router.post('/verify', protect, requireRegistrationComplete, verifyRazorpayPayment);
+router.post('/cod', protect, requireRegistrationComplete, createCODOrder);
+router.post('/wallet', protect, requireRegistrationComplete, createWalletOrder);
 router.post('/calculate-bill', protect, calculateBill);
 
 // --- Admin/Staff Order Routes ---

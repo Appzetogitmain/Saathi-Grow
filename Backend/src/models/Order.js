@@ -208,6 +208,13 @@ const orderSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    // Phase 8: Snapshot of free gift at order-placement time (historical accuracy)
+    // Old orders that pre-date this field simply have null — the modal checks ?.title safely
+    freeGiftSnapshot: {
+        title: { type: String, default: null },
+        description: { type: String, default: null },
+        image: { type: String, default: null }
+    },
     posCustomer: {
         name: String,
         email: String,
@@ -235,6 +242,7 @@ orderSchema.index({ branchId: 1, createdAt: -1 });
 orderSchema.index({ deliveryPartnerId: 1, status: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ 'returnRequest.status': 1 });
+orderSchema.index({ deliverySlotId: 1, 'deliveryWindowSnapshot.scheduledDate': 1, status: 1 });
 orderSchema.index(
     { razorpayPaymentId: 1 },
     {

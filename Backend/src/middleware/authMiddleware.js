@@ -34,6 +34,18 @@ export const protect = async (req, res, next) => {
   if (!token) res.status(401).json({ message: 'Not authorized, no token' });
 };
 
+// Ensure customer has completed initial registration
+export const requireRegistrationComplete = (req, res, next) => {
+  const isMissingFromDb = typeof req.user?.isInit === 'function' && !req.user.isInit('isRegistrationComplete');
+  if (!isMissingFromDb && req.user && req.user.isRegistrationComplete === false) {
+    return res.status(403).json({
+      message: 'Please complete your registration to proceed.',
+      requiresRegistration: true
+    });
+  }
+  next();
+};
+
 // Optional User Protection - Populates req.user if token exists, but doesn't error if not
 export const optionalProtect = async (req, res, next) => {
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {

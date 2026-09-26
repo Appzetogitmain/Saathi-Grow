@@ -32,6 +32,8 @@ export const updateSettings = async (req, res) => {
 
     // Prevent manual override of the platformWalletBalance from this general settings endpoint
     delete updates.platformWalletBalance;
+    // Holidays are managed via dedicated /api/delivery-slots/admin/holidays endpoints
+    delete updates.holidays;
 
     if (updates.immediateDeliveryFee !== undefined) {
       const fee = Number(updates.immediateDeliveryFee);

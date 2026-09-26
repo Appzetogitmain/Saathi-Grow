@@ -351,7 +351,52 @@ const OrderDetailsModal = ({ show, onHide, order, onOrderUpdate }) => {
                             )}
 
                             <p className="text-[10px] font-bold text-slate-400 uppercase mb-3">Order Items</p>
-                            <div className="border border-slate-100 rounded-lg overflow-hidden mb-6">
+
+                            {/* ── Mobile: stacked item cards (< md) ── */}
+                            <div className="md:hidden border border-slate-100 rounded-lg overflow-hidden mb-6 divide-y divide-slate-100">
+                                {displayOrder.items?.map((item, i) => {
+                                    const weight =
+                                        item.selectedVariant?.value ||
+                                        item.weight ||
+                                        (item.product?.unitValue != null
+                                            ? `${item.product.unitValue} ${item.product.unitType || ''}`.trim()
+                                            : '') ||
+                                        (String(item.name || '').match(/\(([^)]+)\)\s*$/)?.[1] || '');
+                                    const displayName = weight
+                                        ? (item.name || '').replace(
+                                            new RegExp(`\\s*\\(${weight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)\\s*$`, 'i'),
+                                            ''
+                                          ).trim() || item.name
+                                        : item.name;
+                                    return (
+                                        <div key={i} className="flex items-start gap-3 p-3 bg-white">
+                                            <img
+                                                src={item.image || 'https://placehold.co/40'}
+                                                className="w-11 h-11 rounded-lg border border-slate-100 object-cover shrink-0 mt-0.5"
+                                                alt={displayName}
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-bold text-slate-800 text-sm leading-tight break-words">{displayName}</p>
+                                                {weight && (
+                                                    <p className="text-[11px] text-slate-400 font-semibold mt-0.5 uppercase tracking-wide">{weight}</p>
+                                                )}
+                                                {item.physicalLocation && (
+                                                    <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded text-[10px] font-black border border-amber-100">
+                                                        <MapPin size={9} /> {item.physicalLocation}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                                <p className="font-black text-slate-900 text-sm">₹{item.price * item.quantity}</p>
+                                                <p className="text-[11px] text-slate-400 mt-0.5">Qty: {item.quantity}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* ── Desktop: existing table (md+) ── */}
+                            <div className="hidden md:block border border-slate-100 rounded-lg overflow-hidden mb-6">
                                 <table className="w-full text-xs text-left">
                                     <thead className="bg-slate-50 text-slate-400 font-bold uppercase border-b border-slate-100">
                                         <tr>
@@ -382,7 +427,7 @@ const OrderDetailsModal = ({ show, onHide, order, onOrderUpdate }) => {
                                             <tr key={i}>
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center gap-2 min-w-0">
-                                                        <img src={item.image || 'https://placehold.co/40'} className="w-8 h-8 rounded border border-slate-100 object-cover shrink-0" />
+                                                        <img src={item.image || 'https://placehold.co/40'} className="w-8 h-8 rounded border border-slate-100 object-cover shrink-0" alt={displayName} />
                                                         <div className="min-w-0 max-w-[180px]">
                                                             <div
                                                                 className="font-bold text-slate-700 truncate cursor-default"
@@ -418,6 +463,30 @@ const OrderDetailsModal = ({ show, onHide, order, onOrderUpdate }) => {
                                     </tbody>
                                 </table>
                             </div>
+
+                            {/* ── Phase 8: Free Gift Section ── only shown when order has a gift snapshot */}
+                            {displayOrder.freeGiftSnapshot?.title && (
+                                <div className="mb-6 p-3 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-3">
+                                    {displayOrder.freeGiftSnapshot.image ? (
+                                        <img
+                                            src={displayOrder.freeGiftSnapshot.image}
+                                            alt={displayOrder.freeGiftSnapshot.title}
+                                            className="w-12 h-12 rounded-lg object-cover border border-emerald-200 shrink-0"
+                                        />
+                                    ) : (
+                                        <div className="w-12 h-12 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0 text-2xl">🎁</div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-0.5">Free Gift Included</p>
+                                        <p className="text-sm font-black text-slate-800 break-words">{displayOrder.freeGiftSnapshot.title}</p>
+                                        {displayOrder.freeGiftSnapshot.description && (
+                                            <p className="text-xs text-slate-500 mt-0.5">{displayOrder.freeGiftSnapshot.description}</p>
+                                        )}
+                                    </div>
+                                    <span className="shrink-0 bg-emerald-600 text-white text-[10px] font-black px-2.5 py-1 rounded-lg tracking-wider">FREE</span>
+                                </div>
+                            )}
+
 
                             <div className="flex justify-end">
                                 <div className="w-full max-w-[240px] space-y-2">

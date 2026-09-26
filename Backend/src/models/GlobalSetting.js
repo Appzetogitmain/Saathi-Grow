@@ -37,7 +37,12 @@ const globalSettingSchema = new mongoose.Schema({
   
   // Offer Strip Settings
   offerStripText: { type: String, default: 'Welcome to Saathigro! Discover fresh groceries at wholesale prices.' },
-  isOfferStripEnabled: { type: Boolean, default: false }
+  isOfferStripEnabled: { type: Boolean, default: false },
+  holidays: [{
+    date: { type: String, required: true, trim: true },
+    name: { type: String, required: true, trim: true },
+    reason: { type: String, default: '', trim: true }
+  }]
 }, {
   timestamps: true
 });

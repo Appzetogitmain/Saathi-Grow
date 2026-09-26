@@ -57,6 +57,7 @@ import SalesReports from '../pages/reports/SalesReports';
 import InventoryReports from '../pages/reports/InventoryReports';
 import VendorReports from '../pages/reports/VendorReports';
 import AdminVyaparReport from '../pages/reports/AdminVyaparReport';
+import SearchAnalytics from '../pages/reports/SearchAnalytics';
 import RevenueAnalytics from '../pages/analytics/RevenueAnalytics';
 
 import VendorEarnings from '../pages/analytics/VendorEarnings';
@@ -243,6 +244,7 @@ const AdminRoutes = () => {
                         <Route path="reports/inventory" element={<InventoryReports />} />
                         <Route path="reports/vendors" element={<VendorReports />} />
                         <Route path="reports/vyapar" element={<AdminVyaparReport />} />
+                        <Route path="reports/search-analytics" element={<SearchAnalytics />} />
 
                         {/* Analytics & Finance */}
                         <Route path="analytics/revenue" element={<RevenueAnalytics />} />

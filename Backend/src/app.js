@@ -179,6 +179,7 @@ import reviewRoutes from './routes/reviewRoutes.js';
 import adminCategoryPageRoutes from './routes/adminCategoryPageRoutes.js';
 import physicalLocationRoutes from './routes/physicalLocationRoutes.js';
 import ogRoutes from './routes/ogRoutes.js';
+import searchLogRoutes from './routes/searchLogRoutes.js';
 import { protect, protectAdmin, protectVendor, protectDeliveryPartner } from './middleware/authMiddleware.js';
 
 
@@ -207,6 +208,7 @@ app.use('/api/delivery', deliveryRoutes);
 app.use('/api/promocodes', promoCodeRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin/reports', reportRoutes);
+app.use('/api/admin/search-logs', searchLogRoutes);
 app.use('/api/reviews', reviewRoutes);
 
 // User Profile/Front-End Routes

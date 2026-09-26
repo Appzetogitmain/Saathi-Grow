@@ -12,6 +12,7 @@ import { sendPushNotification } from '../services/notificationService.js';
 import { syncLocationAssignment } from './physicalLocationController.js';
 import PhysicalLocation from '../models/PhysicalLocation.js';
 import XLSX from 'xlsx';
+import { recordSearchLog } from '../services/searchLogService.js';
 
 /** Default product image (SG logo) when bulk upload has no image URL */
 const getDefaultProductImageUrl = () => {
@@ -677,6 +678,10 @@ export const getProducts = async (req, res) => {
       });
     }
 
+    if (search && typeof search === 'string' && search.trim().length > 0 && Number(page || 1) === 1) {
+      recordSearchLog(req, search, total, 'keyword').catch(() => {});
+    }
+
     res.json({
       products,
       total,
@@ -871,6 +876,10 @@ export const searchProductsWithAI = async (req, res) => {
         }
         return pObj;
       });
+    }
+
+    if (qTrimmed && Number(page || 1) === 1) {
+      recordSearchLog(req, qTrimmed, total, 'ai').catch(() => {});
     }
 
     return res.json({ products, total, page, pages });

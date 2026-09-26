@@ -1,4 +1,4 @@
-﻿import { API_BASE_URL } from '../../../config/apiConfig';
+import { API_BASE_URL } from '../../../config/apiConfig';
 
 const API_URL = `${API_BASE_URL}/auth`;
 
@@ -8,10 +8,12 @@ const API_URL = `${API_BASE_URL}/auth`;
  * @param {string} type - 'login' or 'register'
  */
 export const requestOTP = async (phone, type) => {
+  const payload = { phone };
+  if (type) payload.type = type;
   const response = await fetch(`${API_URL}/request-otp`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone, type })
+    body: JSON.stringify(payload)
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.message || 'Failed to send OTP');
@@ -76,3 +78,23 @@ export const updateProfile = async (token, formData) => {
   if (!response.ok) throw new Error(data.message || 'Failed to update profile');
   return data;
 };
+
+/**
+ * Complete first-time customer registration
+ * @param {string} token
+ * @param {object} payload - { name, email }
+ */
+export const completeRegistration = async (token, { name, email }) => {
+  const response = await fetch(`${API_URL}/complete-registration`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ name, email })
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Failed to complete registration');
+  return data;
+};
+

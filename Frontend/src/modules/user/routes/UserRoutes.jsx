@@ -188,7 +188,7 @@ const UserLayout = () => {
     const { activeStore, isStoreOutOfRange, isStoreInactive, loading: storeLoading } = useStore();
     const { location: userLocation, openLocationModal } = useUserLocation();
 
-    const isPublicPath = ['/login', '/register', '/logout-confirmation', '/privacy-policy', '/support/user', '/support/delivery'].includes(location.pathname) || location.pathname.startsWith('/legal/');
+    const isPublicPath = ['/login', '/register', '/logout-confirmation', '/privacy-policy', '/support/user', '/support/delivery', '/download-app', '/app'].includes(location.pathname) || location.pathname.startsWith('/legal/');
     const hasSelectedLocation = !!(
         userLocation?.coordinates?.length === 2 ||
         (userLocation?.address && userLocation.address !== 'Select Location')
@@ -214,10 +214,10 @@ const UserLayout = () => {
     }, [location.pathname]);
 
     React.useEffect(() => {
-        if (!loading && isShoppingRoute && !hasSelectedLocation) {
+        if (!loading && token && isShoppingRoute && !hasSelectedLocation) {
             openLocationModal();
         }
-    }, [loading, isShoppingRoute, hasSelectedLocation, openLocationModal]);
+    }, [loading, token, isShoppingRoute, hasSelectedLocation, openLocationModal]);
 
     const handleRefresh = async () => {
         try {
@@ -258,8 +258,8 @@ const UserLayout = () => {
     // Initial Loading State
     if (loading) return <LoadingFallback />;
 
-    // APK Mandatory Login Logic
-    if (isWebView && !token && !isPublicPath) {
+    // Mandatory Storefront Customer Authentication
+    if (!token && !isPublicPath) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
@@ -430,14 +430,18 @@ const UserLayout = () => {
     );
 };
 
-const ProtectedRoute = ({ children }) => {
-    const { token, loading } = useAuth();
+const ProtectedRoute = ({ children, requireComplete = true }) => {
+    const { token, user, loading } = useAuth();
     const location = useLocation();
 
     if (loading) return <LoadingFallback />;
 
     if (!token) {
         return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    if (requireComplete && user && user.isRegistrationComplete === false) {
+        return <Navigate to="/register" state={{ from: location }} replace />;
     }
 
     return children;
@@ -449,22 +453,22 @@ const UserRoutes = () => {
             <Suspense fallback={<LoadingFallback />}>
                 <Routes>
                     <Route element={<UserLayout />}>
-                        {/* Home & Listing */}
-                        <Route path="/" element={<HomePage />} />
-                        <Route path="/occasion/:slug" element={<OccasionPage />} />
-                        <Route path="/campaign/:campaignId" element={<CampaignProductsPage />} />
-                        <Route path="/lowest-prices" element={<LowestPricesPage />} />
-                        <Route path="/category" element={<CategoryProductsPage />} />
-                        <Route path="/category/:slug" element={<CategoryLandingPage />} />
-                        <Route path="/category/:slug/products" element={<CategoryProductsPage />} />
-                        <Route path="/brand/:brandName" element={<ShopListingPage type="brand" />} />
-                        <Route path="/store/:storeId/:storeType" element={<ShopListingPage type="store" />} />
-                        <Route path="/product/:id" element={<ProductDetailsPage />} />
+                        {/* Protected Home & Product Catalog Routes */}
+                        <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+                        <Route path="/occasion/:slug" element={<ProtectedRoute><OccasionPage /></ProtectedRoute>} />
+                        <Route path="/campaign/:campaignId" element={<ProtectedRoute><CampaignProductsPage /></ProtectedRoute>} />
+                        <Route path="/lowest-prices" element={<ProtectedRoute><LowestPricesPage /></ProtectedRoute>} />
+                        <Route path="/category" element={<ProtectedRoute><CategoryProductsPage /></ProtectedRoute>} />
+                        <Route path="/category/:slug" element={<ProtectedRoute><CategoryLandingPage /></ProtectedRoute>} />
+                        <Route path="/category/:slug/products" element={<ProtectedRoute><CategoryProductsPage /></ProtectedRoute>} />
+                        <Route path="/brand/:brandName" element={<ProtectedRoute><ShopListingPage type="brand" /></ProtectedRoute>} />
+                        <Route path="/store/:storeId/:storeType" element={<ProtectedRoute><ShopListingPage type="store" /></ProtectedRoute>} />
+                        <Route path="/product/:id" element={<ProtectedRoute><ProductDetailsPage /></ProtectedRoute>} />
 
-                        {/* Cart & Checkout */}
-                        <Route path="/cart" element={<CartPage />} />
-                        <Route path="/checkout" element={<CheckoutPage />} />
-                        <Route path="/order-success" element={<OrderSuccessPage />} />
+                        {/* Protected Cart & Checkout */}
+                        <Route path="/cart" element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
+                        <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
+                        <Route path="/order-success" element={<ProtectedRoute><OrderSuccessPage /></ProtectedRoute>} />
 
                         {/* Address */}
                         <Route path="/address" element={<ProtectedRoute><AddressPage /></ProtectedRoute>} />
@@ -491,19 +495,19 @@ const UserRoutes = () => {
                         <Route path="/my-complaints" element={<ProtectedRoute><MyComplaintsPage /></ProtectedRoute>} />
                         <Route path="/orders/:id/support-chat" element={<ProtectedRoute><SupportChatPage /></ProtectedRoute>} />
 
-                        {/* Support */}
-                        <Route path="/notifications" element={<NotificationsPage />} />
-                        <Route path="/help" element={<HelpPage />} />
-                        <Route path="/settings" element={<SettingsPage />} />
+                        {/* Protected Support, Settings & Offers */}
+                        <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+                        <Route path="/help" element={<ProtectedRoute><HelpPage /></ProtectedRoute>} />
+                        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+                        <Route path="/offer/:id" element={<ProtectedRoute><OfferPage /></ProtectedRoute>} />
+
+                        {/* Public Support & Legal */}
                         <Route path="/legal/:slug" element={<LegalPage />} />
                         <Route path="/support/user" element={<PublicUserSupport />} />
 
-                        {/* Offers */}
-                        <Route path="/offer/:id" element={<OfferPage />} />
-
-                        {/* Auth */}
+                        {/* Authentication & Onboarding Routes */}
                         <Route path="/login" element={<LoginPage />} />
-                        <Route path="/register" element={<RegisterPage />} />
+                        <Route path="/register" element={<ProtectedRoute requireComplete={false}><RegisterPage /></ProtectedRoute>} />
                         <Route path="/logout-confirmation" element={<LogoutConfirmationPage />} />
                     </Route>
                     <Route path="/privacy-policy" element={<PublicPrivacyPolicy />} />
