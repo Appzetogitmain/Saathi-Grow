@@ -6,6 +6,21 @@ export const DEFAULT_DELIVERY_TIMEZONE = 'Asia/Kolkata';
 export const DEFAULT_SLOT_CUTOFF_MINUTES = 30;
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+export const isValidDeliveryDate = (value) => {
+  const match = DATE_PATTERN.exec(String(value || '').trim());
+  if (!match) return false;
+  const [, year, month, day] = match.map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+};
+
+const daysBetweenDateStrings = (fromDate, toDate) => {
+  const [fromYear, fromMonth, fromDay] = fromDate.split('-').map(Number);
+  const [toYear, toMonth, toDay] = toDate.split('-').map(Number);
+  return (Date.UTC(toYear, toMonth - 1, toDay) - Date.UTC(fromYear, fromMonth - 1, fromDay)) / 86400000;
+};
 
 export const parseTimeToMinutes = (value) => {
   const match = TIME_PATTERN.exec(String(value || ''));
@@ -166,25 +181,34 @@ export const getAvailableDays = async (daysToLookAhead = 5, now = new Date()) =>
 export const validateAndBuildDeliveryTiming = async (deliverySlotId, requestedImmediate, requestedDate = null, now = new Date()) => {
   const settings = await getDeliverySettings();
   const timezone = settings.deliveryTimezone || DEFAULT_DELIVERY_TIMEZONE;
-  const todayDateStr = getZonedDateParts(now, timezone).date;
 
   // Backward compatibility: handle if 3rd param is a Date object (legacy tests)
-  let targetDate = todayDateStr;
   let effectiveNow = now;
+  let targetDate = null;
   if (requestedDate instanceof Date) {
     effectiveNow = requestedDate;
     targetDate = getZonedDateParts(effectiveNow, timezone).date;
-  } else if (typeof requestedDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate.trim())) {
+  } else if (requestedDate !== null && requestedDate !== undefined && requestedDate !== '') {
+    if (typeof requestedDate !== 'string' || !isValidDeliveryDate(requestedDate)) {
+      throw new Error('Selected delivery date must be a valid date in YYYY-MM-DD format.');
+    }
     targetDate = requestedDate.trim();
   }
+  const todayDateStr = getZonedDateParts(effectiveNow, timezone).date;
+  if (!targetDate) targetDate = todayDateStr;
 
   const holidays = Array.isArray(settings.holidays) ? settings.holidays : [];
-  const holiday = holidays.find(h => h.date === targetDate);
 
   // Preserve compatibility with older clients that omitted the flag for ASAP orders.
   const isImmediate = requestedImmediate === true || (requestedImmediate == null && !deliverySlotId);
 
   if (isImmediate) {
+    // Immediate delivery always means today. Never let a client-supplied future
+    // date change which holiday is checked or the date persisted on the order.
+    if (targetDate !== todayDateStr) {
+      throw new Error('Immediate delivery can only be scheduled for today.');
+    }
+    const holiday = holidays.find(h => h.date === todayDateStr);
     if (holiday) {
       throw new Error(`Immediate delivery is unavailable today (${holiday.name || 'Shop Holiday'}).`);
     }
@@ -197,12 +221,16 @@ export const validateAndBuildDeliveryTiming = async (deliverySlotId, requestedIm
     };
   }
 
+  const holiday = holidays.find(h => h.date === targetDate);
   if (holiday) {
     throw new Error(`Delivery is unavailable on ${targetDate} due to a scheduled holiday (${holiday.name}).`);
   }
 
   if (targetDate < todayDateStr) {
     throw new Error('Selected delivery date cannot be in the past.');
+  }
+  if (daysBetweenDateStrings(todayDateStr, targetDate) > 13) {
+    throw new Error('Selected delivery date is outside the available booking window.');
   }
 
   if (!deliverySlotId) throw new Error('Please select a delivery slot.');

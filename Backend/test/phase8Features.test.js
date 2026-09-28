@@ -8,6 +8,8 @@ import Order from '../src/models/Order.js';
 import User from '../src/models/User.js';
 import * as deliveryTimingService from '../src/services/deliveryTimingService.js';
 import { recordSearchLog } from '../src/services/searchLogService.js';
+import { buildSearchLogQuery } from '../src/controllers/searchLogController.js';
+import { getOrdersBySlot } from '../src/controllers/deliveryRunController.js';
 import XLSX from 'xlsx';
 
 test('PHASE 8 COMPREHENSIVE SUITE', async (t) => {
@@ -151,6 +153,31 @@ test('PHASE 8 COMPREHENSIVE SUITE', async (t) => {
         assert.deepEqual(readEmptyHeaders[0], headers);
     });
 
+    await t.test('Search logging uses authenticated identity and ignores unverified token contents', async () => {
+        const originalCreate = SearchLog.create;
+        const createdLogs = [];
+        SearchLog.create = async (entry) => { createdLogs.push(entry); return entry; };
+        try {
+            const userId = new mongoose.Types.ObjectId();
+            await recordSearchLog({
+                user: { _id: userId, name: 'Verified User', email: 'verified@example.com' },
+                headers: {}
+            }, 'verified query', 3);
+
+            const forgedPayload = Buffer.from(JSON.stringify({ id: String(new mongoose.Types.ObjectId()) })).toString('base64url');
+            await recordSearchLog({
+                headers: { authorization: `Bearer eyJhbGciOiJub25lIn0.${forgedPayload}.` }
+            }, 'unverified query', 1);
+
+            assert.equal(String(createdLogs[0].userId), String(userId));
+            assert.equal(createdLogs[0].userEmail, 'verified@example.com');
+            assert.equal(createdLogs[1].userId, null);
+            assert.equal(createdLogs[1].userEmail, null);
+        } finally {
+            SearchLog.create = originalCreate;
+        }
+    });
+
     await t.test('Req 2 & 1: Holiday blocking in validateAndBuildDeliveryTiming', async () => {
         const origFindOne = GlobalSetting.findOne;
         try {
@@ -188,6 +215,76 @@ test('PHASE 8 COMPREHENSIVE SUITE', async (t) => {
             );
         } finally {
             GlobalSetting.findOne = origFindOne;
+        }
+    });
+
+    await t.test('Delivery timing rejects a client date that conflicts with immediate delivery and invalid dates', async () => {
+        const origFindOne = GlobalSetting.findOne;
+        const today = deliveryTimingService.getZonedDateParts(new Date()).date;
+        try {
+            GlobalSetting.findOne = async () => ({
+                deliveryTimezone: 'Asia/Kolkata',
+                immediateDeliveryEnabled: true,
+                holidays: [{ date: today, name: 'Today Closed' }]
+            });
+
+            await assert.rejects(
+                deliveryTimingService.validateAndBuildDeliveryTiming(null, true, '2099-01-01'),
+                /only be scheduled for today/
+            );
+            await assert.rejects(
+                deliveryTimingService.validateAndBuildDeliveryTiming(null, true, today),
+                /unavailable today \(Today Closed\)/
+            );
+            await assert.rejects(
+                deliveryTimingService.validateAndBuildDeliveryTiming(new mongoose.Types.ObjectId(), false, '2026-02-30'),
+                /valid date in YYYY-MM-DD format/
+            );
+        } finally {
+            GlobalSetting.findOne = origFindOne;
+        }
+    });
+
+    await t.test('Search analytics filters escape regex input and use inclusive IST calendar dates', () => {
+        const query = buildSearchLogQuery({ search: '[', startDate: '2026-09-28', endDate: '2026-09-28' });
+
+        assert.equal(query.$or[0].query.test('['), true);
+        assert.equal(query.$or[0].query.test('anything'), false);
+        assert.equal(query.createdAt.$gte.toISOString(), '2026-09-27T18:30:00.000Z');
+        assert.equal(query.createdAt.$lt.toISOString(), '2026-09-28T18:30:00.000Z');
+        assert.throws(() => buildSearchLogQuery({ startDate: '2026-02-30' }), /valid dates/);
+        assert.throws(() => buildSearchLogQuery({ startDate: '2026-09-29', endDate: '2026-09-28' }), /on or before/);
+    });
+
+    await t.test('Dispatch order lookup filters future orders by the selected scheduled date', async () => {
+        const originalFindOne = GlobalSetting.findOne;
+        const originalOrderFind = Order.find;
+        const originalSlotFind = DeliverySlot.find;
+        const originalRunFind = mongoose.model('DeliveryRun').find;
+        let capturedOrderQuery;
+        try {
+            GlobalSetting.findOne = async () => ({ deliveryTimezone: 'Asia/Kolkata' });
+            Order.find = (query) => {
+                capturedOrderQuery = query;
+                return { populate() { return this; }, sort: async () => [] };
+            };
+            DeliverySlot.find = () => ({ sort: async () => [] });
+            mongoose.model('DeliveryRun').find = () => ({
+                populate() { return this; },
+                then(resolve) { resolve([]); }
+            });
+
+            const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(data) { this.data = data; return this; } };
+            await getOrdersBySlot({ admin: { role: 'Admin' }, query: { date: '2099-01-01' } }, response);
+
+            assert.equal(response.statusCode, 200);
+            assert.equal(capturedOrderQuery['deliveryWindowSnapshot.scheduledDate'], '2099-01-01');
+            assert.equal(capturedOrderQuery.$or, undefined);
+        } finally {
+            GlobalSetting.findOne = originalFindOne;
+            Order.find = originalOrderFind;
+            DeliverySlot.find = originalSlotFind;
+            mongoose.model('DeliveryRun').find = originalRunFind;
         }
     });
 

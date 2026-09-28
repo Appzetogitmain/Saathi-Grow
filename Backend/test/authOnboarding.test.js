@@ -6,16 +6,32 @@ import {
   validateUserOtpVerifyPayload,
   validateCompleteRegistrationPayload
 } from '../src/middleware/requestValidation.js';
-import { requireRegistrationComplete } from '../src/middleware/authMiddleware.js';
+import { requireRegistrationComplete, requirePermission } from '../src/middleware/authMiddleware.js';
 
-test('AUTH SCHEMA: User model has isRegistrationComplete boolean field defaulting to false', () => {
+test('AUTH SCHEMA: User model preserves an unset registration flag unless a creation path sets it', () => {
   const regPath = User.schema.path('isRegistrationComplete');
   assert.ok(regPath, 'User schema must have isRegistrationComplete field');
   assert.equal(regPath.instance, 'Boolean');
-  assert.equal(regPath.defaultValue, false);
+  assert.equal(regPath.defaultValue, undefined);
 
   const testUser = new User({ phone: '9999999999' });
-  assert.equal(testUser.isRegistrationComplete, false);
+  assert.equal(testUser.isRegistrationComplete, undefined);
+  assert.equal(new User({ phone: '9999999998', isRegistrationComplete: false }).isRegistrationComplete, false);
+});
+
+test('AUTH SCHEMA: saving OTP fields on a legacy user does not persist the new registration default', () => {
+  const legacyUser = User.hydrate({
+    _id: '507f1f77bcf86cd799439011',
+    phone: '9999999997',
+    name: 'Legacy Customer'
+  });
+
+  legacyUser.otp = '123456';
+  legacyUser.otpExpires = new Date(Date.now() + 60_000);
+  const [, update] = legacyUser.$__delta();
+
+  assert.equal(legacyUser.isRegistrationComplete, undefined);
+  assert.equal(update.$set?.isRegistrationComplete, undefined);
 });
 
 test('AUTH VALIDATION: request-otp accepts phone without requiring type', () => {
@@ -184,6 +200,26 @@ test('AUTH MIDDLEWARE: requireRegistrationComplete permits completed accounts (i
   assert.equal(nextCalled, true);
 });
 
+test('AUTH MIDDLEWARE: reports and global settings require their matching staff permissions', () => {
+  const runPermission = (permission, permissions) => {
+    let statusCode = null;
+    let nextCalled = false;
+    const req = { admin: { role: 'Staff', permissions } };
+    const res = {
+      status(code) {
+        statusCode = code;
+        return { json() {} };
+      }
+    };
+    requirePermission(permission)(req, res, () => { nextCalled = true; });
+    return { statusCode, nextCalled };
+  };
+
+  assert.deepEqual(runPermission('VIEW_REPORTS', []), { statusCode: 403, nextCalled: false });
+  assert.deepEqual(runPermission('VIEW_REPORTS', ['VIEW_REPORTS']), { statusCode: null, nextCalled: true });
+  assert.deepEqual(runPermission('MANAGE_SETTINGS', []), { statusCode: 403, nextCalled: false });
+});
+
 test('AUTH MIDDLEWARE: requireRegistrationComplete permits legacy accounts (isRegistrationComplete: undefined)', () => {
   let nextCalled = false;
   const req = {
@@ -224,4 +260,3 @@ test('AUTH MIDDLEWARE: requireRegistrationComplete permits Mongoose hydrated leg
   });
   assert.equal(nextCalled, true);
 });
-

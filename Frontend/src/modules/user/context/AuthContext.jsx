@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import * as authApi from '../api/userAuthApi';
 import { toast } from 'react-toastify';
 import { isWebView as checkWebView } from '../../../utils/deviceUtils';
-import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../../../config/apiConfig';
 import { captureReferralFromUrl, clearStoredReferralCode } from '../utils/referralUtils';
 
@@ -25,7 +24,7 @@ export const AuthProvider = ({ children }) => {
                 const parsed = JSON.parse(savedUser);
                 if (savedToken && !parsed.token) parsed.token = savedToken;
                 return parsed;
-            } catch (e) {
+            } catch {
                 return null;
             }
         }
@@ -66,7 +65,6 @@ export const AuthProvider = ({ children }) => {
     }, []); // Only on mount
 
     const verifyOtp = useCallback(async (credentials) => {
-        setLoading(true);
         try {
             const data = await authApi.verifyOTP(credentials);
             const userWithToken = data.user ? { ...data.user, token: data.token } : null;
@@ -88,8 +86,6 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             toast.error(error.message);
             return { success: false, message: error.message };
-        } finally {
-            setLoading(false);
         }
     }, []);
 
@@ -102,7 +98,6 @@ export const AuthProvider = ({ children }) => {
     }, [verifyOtp]);
 
     const completeRegistration = useCallback(async (formData) => {
-        setLoading(true);
         try {
             const data = await authApi.completeRegistration(token, formData);
             const userWithToken = data.user ? { ...data.user, token } : null;
@@ -112,8 +107,6 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             toast.error(error.message);
             return { success: false, message: error.message };
-        } finally {
-            setLoading(false);
         }
     }, [token]);
 

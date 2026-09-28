@@ -35,6 +35,10 @@ import { useTranslation } from 'react-i18next';
 import PageInfoTooltip from '../../../../common/components/modals/PageInfoTooltip';
 import { pageInfoData } from '../../../../common/data/pageInfoData';
 
+const getTodayDeliveryDate = () => new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+}).format(new Date());
+
 const AssignDeliveries = () => {
     const { t } = useTranslation('admin_delivery');
     const [viewType, setViewType] = useState('slots'); // 'slots' or 'runs'
@@ -50,6 +54,7 @@ const AssignDeliveries = () => {
     const [assigningLoading, setAssigningLoading] = useState(false);
     const [optimizeRoute, setOptimizeRoute] = useState(true);
     const [locationSort, setLocationSort] = useState(false); // sort orders by city
+    const [selectedDeliveryDate, setSelectedDeliveryDate] = useState(getTodayDeliveryDate);
 
     const fetchData = async (isRefresh = false) => {
         try {
@@ -57,15 +62,15 @@ const AssignDeliveries = () => {
             else setLoading(true);
             
             if (viewType === 'slots') {
-                const data = await getOrdersBySlot();
+                const data = await getOrdersBySlot(selectedDeliveryDate);
                 setSlotData(data || { immediate: { orders: [], count: 0 }, slots: [] });
                 setSelectedOrders([]);
                 setCurrentSlotContext(null);
             } else {
-                const data = await getAllDeliveryRuns();
+                const data = await getAllDeliveryRuns('', selectedDeliveryDate);
                 setActiveRuns(data || []);
             }
-        } catch (error) {
+        } catch {
             toast.error(t('assign.alerts.error'));
         } finally {
             setLoading(false);
@@ -75,7 +80,7 @@ const AssignDeliveries = () => {
 
     useEffect(() => {
         fetchData();
-    }, [viewType]);
+    }, [viewType, selectedDeliveryDate]);
 
     useEffect(() => {
         if (showAssignModal) {
@@ -138,7 +143,7 @@ const AssignDeliveries = () => {
             // Only show drivers who are currently online
             const onlineDrivers = drivers.filter(d => d.dutyStatus === 'Online');
             setAvailableDrivers(onlineDrivers);
-        } catch (error) {
+        } catch {
             // toast.error("Failed to load available riders");
         } finally {
             setLoadingDrivers(false);
@@ -151,7 +156,7 @@ const AssignDeliveries = () => {
             const payload = {
                 partnerId: driverId,
                 slotId: (currentSlotContext === 'immediate' || !currentSlotContext) ? null : currentSlotContext,
-                slotDate: new Date().toISOString(),
+                slotDate: `${selectedDeliveryDate}T00:00:00.000Z`,
                 orderIds: selectedOrders,
                 optimizeRoute: optimizeRoute
             };
@@ -202,7 +207,22 @@ const AssignDeliveries = () => {
                     <p className="text-slate-500 text-xs mt-1 font-medium">{t('assign.subtitle')}</p>
                 </div>
 
-                <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                    <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm text-[11px] font-bold text-slate-600">
+                        <Calendar size={14} />
+                        <span className="sr-only">Dispatch date</span>
+                        <input
+                            type="date"
+                            value={selectedDeliveryDate}
+                            onChange={(event) => {
+                                setSelectedOrders([]);
+                                setCurrentSlotContext(null);
+                                setSelectedDeliveryDate(event.target.value);
+                            }}
+                            className="bg-transparent text-slate-700 outline-none"
+                            aria-label="Dispatch date"
+                        />
+                    </label>
                     <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
                         <button
                             onClick={() => setViewType('slots')}
@@ -439,7 +459,7 @@ const AssignDeliveries = () => {
                                         </td>
                                     </tr>
                                 ) : activeRuns.map(run => {
-                                    const { total, delivered, failed, pending } = run.summary;
+                                    const { total, delivered, failed } = run.summary;
                                     const isComplete = ['completed', 'partial_complete'].includes(run.status);
                                     const progress = total > 0 ? (delivered / total) * 100 : 0;
 

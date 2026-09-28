@@ -1,6 +1,4 @@
 import SearchLog from '../models/SearchLog.js';
-import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
 
 /**
  * Safely logs customer search query.
@@ -12,27 +10,10 @@ export const recordSearchLog = async (req, query, resultsCount = 0, source = 'ke
         const trimmed = query.trim();
         if (trimmed.length < 2) return;
 
-        let userId = req.user?._id || null;
-        let userName = req.user?.name || null;
-        let userEmail = req.user?.email || null;
-
-        // If req.user is not populated yet, try decoding token safely
-        if (!userId && req.headers?.authorization && req.headers.authorization.startsWith('Bearer')) {
-            try {
-                const token = req.headers.authorization.split(' ')[1];
-                const decoded = jwt.decode(token);
-                if (decoded?.id) {
-                    userId = decoded.id;
-                    const u = await User.findById(decoded.id).select('name email').lean();
-                    if (u) {
-                        userName = u.name || null;
-                        userEmail = u.email || null;
-                    }
-                }
-            } catch (_) {
-                // Ignore token decode failure
-            }
-        }
+        // Identity is populated only by optionalProtect, which verifies the JWT.
+        const userId = req.user?._id || null;
+        const userName = req.user?.name || null;
+        const userEmail = req.user?.email || null;
 
         const sessionId = req.headers?.['x-session-id'] || null;
 

@@ -1,10 +1,10 @@
 import express from 'express';
 import { getSearchLogs, exportSearchLogs } from '../controllers/searchLogController.js';
-import { protectAdmin } from '../middleware/authMiddleware.js';
+import { protectAdmin, requirePermission } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.use(protectAdmin);
+router.use(protectAdmin, requirePermission('VIEW_REPORTS'));
 
 router.get('/', getSearchLogs);
 router.get('/export', exportSearchLogs);

@@ -1,6 +1,57 @@
 import SearchLog from '../models/SearchLog.js';
 import XLSX from 'xlsx';
 
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const isValidCalendarDate = (value) => {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const [year, month, day] = value.split('-').map(Number);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+};
+
+const istDateStart = (value) => {
+    const [year, month, day] = value.split('-').map(Number);
+    // India is UTC+05:30: local midnight expressed as a UTC instant.
+    return new Date(Date.UTC(year, month - 1, day, -5, -30));
+};
+
+export const buildSearchLogQuery = ({ search = '', startDate, endDate, source }) => {
+    const query = {};
+    const normalizedSearch = String(search).trim();
+
+    if (normalizedSearch) {
+        if (normalizedSearch.length > 100) throw new Error('Search filter must be 100 characters or fewer.');
+        const searchRegex = new RegExp(escapeRegex(normalizedSearch), 'i');
+        query.$or = [
+            { query: searchRegex },
+            { userName: searchRegex },
+            { userEmail: searchRegex }
+        ];
+    }
+
+    if (source && ['keyword', 'ai'].includes(source)) query.source = source;
+
+    if (startDate || endDate) {
+        if ((startDate && !isValidCalendarDate(startDate)) || (endDate && !isValidCalendarDate(endDate))) {
+            throw new Error('Date filters must be valid dates in YYYY-MM-DD format.');
+        }
+        if (startDate && endDate && startDate > endDate) {
+            throw new Error('Start date must be on or before end date.');
+        }
+
+        query.createdAt = {};
+        if (startDate) query.createdAt.$gte = istDateStart(startDate);
+        if (endDate) {
+            const [year, month, day] = endDate.split('-').map(Number);
+            const nextDay = new Date(Date.UTC(year, month - 1, day + 1));
+            query.createdAt.$lt = istDateStart(nextDay.toISOString().slice(0, 10));
+        }
+    }
+
+    return query;
+};
+
 /**
  * @desc    Get paginated customer search logs with summary analytics
  * @route   GET /api/admin/search-logs
@@ -21,31 +72,11 @@ export const getSearchLogs = async (req, res) => {
         const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
         const skip = (pageNum - 1) * limitNum;
 
-        const query = {};
-
-        if (search && search.trim()) {
-            const searchRegex = new RegExp(search.trim(), 'i');
-            query.$or = [
-                { query: searchRegex },
-                { userName: searchRegex },
-                { userEmail: searchRegex }
-            ];
-        }
-
-        if (source && ['keyword', 'ai'].includes(source)) {
-            query.source = source;
-        }
-
-        if (startDate || endDate) {
-            query.createdAt = {};
-            if (startDate) {
-                query.createdAt.$gte = new Date(startDate);
-            }
-            if (endDate) {
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                query.createdAt.$lte = end;
-            }
+        let query;
+        try {
+            query = buildSearchLogQuery({ search, startDate, endDate, source });
+        } catch (error) {
+            return res.status(400).json({ message: error.message });
         }
 
         const [logs, total, topQueriesAgg] = await Promise.all([
@@ -102,31 +133,11 @@ export const exportSearchLogs = async (req, res) => {
             source
         } = req.query;
 
-        const query = {};
-
-        if (search && search.trim()) {
-            const searchRegex = new RegExp(search.trim(), 'i');
-            query.$or = [
-                { query: searchRegex },
-                { userName: searchRegex },
-                { userEmail: searchRegex }
-            ];
-        }
-
-        if (source && ['keyword', 'ai'].includes(source)) {
-            query.source = source;
-        }
-
-        if (startDate || endDate) {
-            query.createdAt = {};
-            if (startDate) {
-                query.createdAt.$gte = new Date(startDate);
-            }
-            if (endDate) {
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                query.createdAt.$lte = end;
-            }
+        let query;
+        try {
+            query = buildSearchLogQuery({ search, startDate, endDate, source });
+        } catch (error) {
+            return res.status(400).json({ message: error.message });
         }
 
         // Cap to safe maximum rows (10,000) to protect server memory

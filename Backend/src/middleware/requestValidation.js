@@ -117,12 +117,12 @@ export const validateCompleteRegistrationPayload = (req, res, next) => {
     return sendError(req, res, 400, 'Full name is required');
   }
 
-  const trimmedName = nameRaw.trim();
+  const trimmedName = nameRaw.trim().replace(/\s+/g, ' ');
   if (trimmedName.length < 2 || trimmedName.length > 60) {
     return sendError(req, res, 400, 'Full name must be between 2 and 60 characters');
   }
 
-  const nameRegex = /^[a-zA-Z\s]+$/;
+  const nameRegex = /^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u;
   if (!nameRegex.test(trimmedName)) {
     return sendError(req, res, 400, 'Full name should only contain letters and spaces, without numbers or special characters');
   }

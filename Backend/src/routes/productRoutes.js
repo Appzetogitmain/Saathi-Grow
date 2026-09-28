@@ -20,7 +20,7 @@ import {
   bulkUploadProducts,
   bulkUploadProductsJson
 } from '../controllers/productController.js';
-import { protectAdmin, restrictTo, requirePermission, optionalProtectAdmin, protectStoreManager, optionalProtectStoreManager } from '../middleware/authMiddleware.js';
+import { protectAdmin, restrictTo, requirePermission, optionalProtectAdmin, protectStoreManager, optionalProtectStoreManager, optionalProtect } from '../middleware/authMiddleware.js';
 import { upload, productImageUpload } from '../config/cloudinary.js';
 import multer from 'multer';
 
@@ -30,7 +30,7 @@ const router = express.Router();
 
 // Static routes first (MUST BE ABOVE /:id)
 router.get('/brands', getUniqueBrands);
-router.get('/search/ai', optionalProtectStoreManager, searchProductsWithAI);
+router.get('/search/ai', optionalProtect, optionalProtectStoreManager, searchProductsWithAI);
 
 // Admin Only Static Routes
 router.get('/inventory/stats', protectAdmin, requirePermission('VIEW_PRODUCTS'), getInventoryStats);
@@ -45,7 +45,7 @@ router.post('/bulk-json', protectAdmin, requirePermission('MANAGE_PRODUCTS'), bu
 router.delete('/bulk', protectAdmin, requirePermission('MANAGE_PRODUCTS'), restrictTo('Admin', 'Store Manager'), bulkDeleteProducts);
 
 // Public/General Routes
-router.get('/', optionalProtectStoreManager, getProducts);
+router.get('/', optionalProtect, optionalProtectStoreManager, getProducts);
 router.get('/:id', optionalProtectStoreManager, getProductById);
 
 // Admin Only Dynamic Routes

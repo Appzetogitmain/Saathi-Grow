@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 import PolicyViewerModal from '../../../../common/components/legal/PolicyViewerModal';
 
 const RegisterPage = () => {
-    const { user, token, completeRegistration, loading: authLoading } = useAuth();
+    const { user, completeRegistration, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -45,14 +45,14 @@ const RegisterPage = () => {
     const handleSubmit = async (e) => {
         if (e) e.preventDefault();
 
-        const trimmedName = name.trim();
+        const trimmedName = name.trim().replace(/\s+/g, ' ');
         if (!trimmedName) {
             return toast.error('Please enter your full name');
         }
         if (trimmedName.length < 2) {
             return toast.error('Full name must be at least 2 characters');
         }
-        const nameRegex = /^[a-zA-Z\s]+$/;
+        const nameRegex = /^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u;
         if (!nameRegex.test(trimmedName)) {
             return toast.error('Full name should only contain letters and spaces');
         }

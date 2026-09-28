@@ -119,7 +119,7 @@ export const verifyOTP = async (req, res) => {
       }
 
       if (name) {
-        const nameRegex = /^[a-zA-Z\s]+$/;
+        const nameRegex = /^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u;
         if (!nameRegex.test(name.trim())) {
           return res.status(400).json({ message: 'Full name should only contain letters and spaces, without numbers or special characters' });
         }
@@ -262,12 +262,12 @@ export const completeRegistration = async (req, res) => {
       return res.status(400).json({ message: 'Full name is required' });
     }
 
-    const trimmedName = name.trim();
+    const trimmedName = name.trim().replace(/\s+/g, ' ');
     if (trimmedName.length < 2 || trimmedName.length > 60) {
       return res.status(400).json({ message: 'Full name must be between 2 and 60 characters' });
     }
 
-    const nameRegex = /^[a-zA-Z\s]+$/;
+    const nameRegex = /^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u;
     if (!nameRegex.test(trimmedName)) {
       return res.status(400).json({ message: 'Full name should only contain letters and spaces, without numbers or special characters' });
     }
@@ -346,7 +346,7 @@ export const updateProfile = async (req, res) => {
 
     if (user) {
       if (req.body.name) {
-        const nameRegex = /^[a-zA-Z\s]+$/;
+        const nameRegex = /^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u;
         if (!nameRegex.test(req.body.name.trim())) {
           return res.status(400).json({ message: 'Full name should only contain letters and spaces, without numbers or special characters' });
         }

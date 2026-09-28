@@ -126,7 +126,9 @@ export const searchProducts = async (query = '', page = 1, storeParams = {}, sig
     }
   });
   
-  const response = await fetch(`${API_BASE_URL}/admin/products?${params.toString()}`, { signal });
+  const token = localStorage.getItem('saathigro_token');
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const response = await fetch(`${API_BASE_URL}/admin/products?${params.toString()}`, { signal, headers });
   const data = await response.json();
   if (!response.ok) throw new Error(data.message || 'Failed to search products');
   return data;
@@ -134,7 +136,9 @@ export const searchProducts = async (query = '', page = 1, storeParams = {}, sig
 
 export const searchProductsWithAI = async (query = '', page = 1, storeParams = {}, signal = null) => {
   const params = new URLSearchParams({ q: query, page, isAI: 'true', ...storeParams }).toString();
-  const response = await fetch(`${API_BASE_URL}/admin/products/search/ai?${params}`, { signal });
+  const token = localStorage.getItem('saathigro_token');
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const response = await fetch(`${API_BASE_URL}/admin/products/search/ai?${params}`, { signal, headers });
   const data = await response.json();
   if (!response.ok) throw new Error(data.message || 'Failed AI search');
   return data;

@@ -6,12 +6,20 @@ export const runMigration = async () => {
   const filter = {
     $or: [
       { isRegistrationComplete: { $exists: false } },
-      { isRegistrationComplete: null }
+      { isRegistrationComplete: null },
+      {
+        isRegistrationComplete: false,
+        name: { $nin: [null, '', 'New Saathi'] },
+        $or: [
+          { email: { $exists: true, $nin: [null, ''] } },
+          { addresses: { $elemMatch: { street: { $exists: true, $nin: [null, ''] } } } }
+        ]
+      }
     ]
   };
 
   const count = await User.countDocuments(filter);
-  console.log(`[MIGRATION_AUDIT] Found ${count} legacy users missing isRegistrationComplete field.`);
+  console.log(`[MIGRATION_AUDIT] Found ${count} legacy or previously-completed users needing registration flag repair.`);
 
   if (count > 0) {
     const result = await User.updateMany(filter, {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../../context/CartContext';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
     MapPin,
@@ -45,11 +45,11 @@ const CheckoutPage = () => {
     const { cartTotal = 0, clearCart, cartCount = 0, cart = [] } = useCart();
     const { location: globalLocation, openLocationModal, savedAddresses, updateLocation, addAddress } = useGlobalLocation();
     const { user, token } = useAuth();
-    const { activeStore, isStoreOutOfRange, isStoreInactive, openStoreSelector } = useStore();
+    const { activeStore, isStoreOutOfRange, isStoreInactive } = useStore();
     const [isPlacing, setIsPlacing] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState('cod');
+    const onlineMethod = 'phonepe';
     const [walletBalance, setWalletBalance] = useState(0);
-    const [onlineMethod, setOnlineMethod] = useState('phonepe');
     const [billDetails, setBillDetails] = useState(null);
     const [isCalculating, setIsCalculating] = useState(true);
     const [deliverySlots, setDeliverySlots] = useState([]);
@@ -81,7 +81,6 @@ const CheckoutPage = () => {
         landmark: ''
     });
     const navigate = useNavigate();
-    const location = useLocation();
     const isCityOnlySelection = (loc) => {
         if (!loc) return false;
         const address = (loc.address || '').trim().toLowerCase();
@@ -166,6 +165,10 @@ const CheckoutPage = () => {
             if (current) return;
         }
 
+        const hasCurrentLocation = Boolean(
+            globalLocation?.coordinates?.length === 2 ||
+            (globalLocation?.address && globalLocation.address !== 'Select Location')
+        );
         let targetAddr = null;
         if (globalLocation?.coordinates?.length === 2) {
             targetAddr = savedAddresses.find((addr) => {
@@ -173,10 +176,16 @@ const CheckoutPage = () => {
                 const c2 = globalLocation.coordinates || [];
                 return c1.length === 2 && c2.length === 2 && String(c1[0]) === String(c2[0]) && String(c1[1]) === String(c2[1]);
             });
+        } else if (hasCurrentLocation) {
+            const currentAddress = (globalLocation.address || '').trim().toLowerCase();
+            targetAddr = savedAddresses.find((addr) =>
+                [addr.address, addr.fullAddress].some(value => value?.trim().toLowerCase() === currentAddress)
+            );
         }
 
-        // Fallback: pick default or first saved address even if coordinates don't match!
-        if (!targetAddr) {
+        // Only choose the default address automatically if no delivery location
+        // has been selected. Never combine a saved street with another location's coordinates.
+        if (!targetAddr && !hasCurrentLocation) {
             targetAddr = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
         }
 
@@ -190,16 +199,14 @@ const CheckoutPage = () => {
                 zipCode: targetAddr.zipCode || prev.zipCode
             }));
 
-            if (globalLocation.address === 'Select Location') {
-                updateLocation({
-                    address: targetAddr.address,
-                    city: targetAddr.city,
-                    state: targetAddr.state || '',
-                    zipCode: targetAddr.zipCode || '',
-                    fullAddress: targetAddr.fullAddress || [targetAddr.address, targetAddr.city, targetAddr.state, targetAddr.zipCode].filter(Boolean).join(', '),
-                    coordinates: targetAddr.coordinates
-                });
-            }
+            updateLocation({
+                address: targetAddr.address,
+                city: targetAddr.city,
+                state: targetAddr.state || '',
+                zipCode: targetAddr.zipCode || '',
+                fullAddress: targetAddr.fullAddress || [targetAddr.address, targetAddr.city, targetAddr.state, targetAddr.zipCode].filter(Boolean).join(', '),
+                coordinates: targetAddr.coordinates || null
+            });
         }
     }, [savedAddresses]);
 
@@ -212,16 +219,14 @@ const CheckoutPage = () => {
             state: addr.state || '',
             zipCode: addr.zipCode || ''
         }));
-        if (addr.coordinates) {
-            updateLocation({
-                address: addr.address,
-                city: addr.city,
-                state: addr.state || '',
-                zipCode: addr.zipCode || '',
-                fullAddress: addr.fullAddress || [addr.address, addr.city, addr.state, addr.zipCode].filter(Boolean).join(', '),
-                coordinates: addr.coordinates
-            });
-        }
+        updateLocation({
+            address: addr.address,
+            city: addr.city,
+            state: addr.state || '',
+            zipCode: addr.zipCode || '',
+            fullAddress: addr.fullAddress || [addr.address, addr.city, addr.state, addr.zipCode].filter(Boolean).join(', '),
+            coordinates: addr.coordinates || null
+        });
     };
 
     const handleSelectDate = (dateObj) => {
@@ -524,7 +529,7 @@ const CheckoutPage = () => {
                             await maybeSaveAddressAfterOrder();
                             clearCart();
                             navigate('/order-success', { state: { orderId: res.order._id } });
-                        } catch (verifyErr) {
+                        } catch {
                             toast.error("Payment was blocked or untrusted signature failed");
                         }
                     },

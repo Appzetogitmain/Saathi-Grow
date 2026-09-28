@@ -9,7 +9,7 @@ const userSchema = new mongoose.Schema({
         validate: {
             validator: function(v) {
                 if (!v || v === 'New Saathi') return true;
-                return /^[a-zA-Z\s]+$/.test(v);
+                return /^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u.test(v);
             },
             message: 'Full name must only contain letters and spaces'
         }
@@ -33,7 +33,9 @@ const userSchema = new mongoose.Schema({
     },
     isRegistrationComplete: {
         type: Boolean,
-        default: false,
+        // New customer creation paths set this explicitly. Leaving it undefined
+        // preserves legacy users when an OTP or profile field is saved.
+        default: undefined,
         index: true
     },
     profileImage: {

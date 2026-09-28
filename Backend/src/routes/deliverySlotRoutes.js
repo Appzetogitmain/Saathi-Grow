@@ -10,7 +10,7 @@ import {
   addHolidayAdmin,
   deleteHolidayAdmin
 } from '../controllers/deliverySlotController.js';
-import { protectAdmin } from '../middleware/authMiddleware.js';
+import { protectAdmin, requirePermission } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -26,8 +26,8 @@ router.put('/admin/:id', updateDeliverySlot);
 router.delete('/admin/:id', deleteDeliverySlot);
 
 // Admin Holiday Management routes
-router.get('/admin/holidays', getHolidaysAdmin);
-router.post('/admin/holidays', addHolidayAdmin);
-router.delete('/admin/holidays/:date', deleteHolidayAdmin);
+router.get('/admin/holidays', requirePermission('MANAGE_SETTINGS'), getHolidaysAdmin);
+router.post('/admin/holidays', requirePermission('MANAGE_SETTINGS'), addHolidayAdmin);
+router.delete('/admin/holidays/:date', requirePermission('MANAGE_SETTINGS'), deleteHolidayAdmin);
 
 export default router;

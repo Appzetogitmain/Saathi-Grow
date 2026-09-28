@@ -5,6 +5,7 @@ import DeliverySlot from '../models/DeliverySlot.js';
 import mongoose from 'mongoose';
 import { sendPushNotification } from '../services/notificationService.js';
 import { assertPartnerCapacity, syncPartnerAssignmentState } from '../services/deliveryCapacityService.js';
+import { getZonedDateParts, DEFAULT_DELIVERY_TIMEZONE, isValidDeliveryDate, getDeliverySettings } from '../services/deliveryTimingService.js';
 
 // Google Maps setup for route optimization
 import axios from 'axios';
@@ -20,20 +21,32 @@ export const getOrdersBySlot = async (req, res) => {
     const vendor = req.vendor;
     const { date, branchId } = req.query;
 
-    // Default to today if no date provided
-    const queryDate = date ? new Date(date) : new Date();
-
-    // Set start and end of the query date for order filtering
-    const startOfDay = new Date(queryDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(queryDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Delivery dates are calendar dates in the configured delivery timezone.
+    const settings = await getDeliverySettings();
+    const timezone = settings.deliveryTimezone || DEFAULT_DELIVERY_TIMEZONE;
+    const queryDate = date || getZonedDateParts(new Date(), timezone).date;
+    if (!isValidDeliveryDate(queryDate)) {
+      return res.status(400).json({ message: 'Date must be a valid date in YYYY-MM-DD format.' });
+    }
+    const startOfDay = new Date(`${queryDate}T00:00:00.000Z`);
+    const endOfDay = new Date(startOfDay.getTime() + 86400000 - 1);
 
     // Build base query for orders
     const orderQuery = {
       status: { $in: ['confirmed', 'preparing', 'pending', 'ready_for_pickup'] },
       deliveryPartnerId: null, // Unassigned
     };
+    const todayDate = getZonedDateParts(new Date(), timezone).date;
+    if (queryDate === todayDate) {
+      // Include pre-migration orders without a saved date in today's dispatch list.
+      orderQuery.$or = [
+        { 'deliveryWindowSnapshot.scheduledDate': queryDate },
+        { 'deliveryWindowSnapshot.scheduledDate': null },
+        { 'deliveryWindowSnapshot.scheduledDate': { $exists: false } }
+      ];
+    } else {
+      orderQuery['deliveryWindowSnapshot.scheduledDate'] = queryDate;
+    }
 
     if (vendor) {
       orderQuery.vendor = vendor._id;
@@ -136,6 +149,25 @@ export const createDeliveryRun = async (req, res) => {
       throw new Error('One or more orders not found');
     }
 
+    const scheduledDate = typeof slotDate === 'string' ? slotDate.slice(0, 10) : '';
+    if (!isValidDeliveryDate(scheduledDate)) {
+      throw new Error('A valid scheduled delivery date is required.');
+    }
+    const deliverySettings = await getDeliverySettings();
+    const deliveryTimezone = deliverySettings.deliveryTimezone || DEFAULT_DELIVERY_TIMEZONE;
+    const todayDate = getZonedDateParts(new Date(), deliveryTimezone).date;
+    for (const order of orders) {
+      const orderDate = order.deliveryWindowSnapshot?.scheduledDate;
+      if (orderDate ? orderDate !== scheduledDate : scheduledDate !== todayDate) {
+        throw new Error('All selected orders must be scheduled for the selected delivery date. Refresh the dispatch list and try again.');
+      }
+      const orderSlotId = order.deliverySlotId?._id || order.deliverySlotId;
+      const orderIsImmediate = order.isImmediate || !orderSlotId;
+      if (slotId ? (orderIsImmediate || String(orderSlotId) !== String(slotId)) : !orderIsImmediate) {
+        throw new Error('All selected orders must belong to the selected delivery window. Refresh the dispatch list and try again.');
+      }
+    }
+
     // 2.1 Determine Start Point (Origin)
     // Runs usually start from a Branch or the first Vendor
     let origin = "";
@@ -220,7 +252,7 @@ export const createDeliveryRun = async (req, res) => {
       runId: runIdString,
       deliveryPartner: partner._id,
       deliverySlot: slotId || null,
-      slotDate: slotDate ? new Date(slotDate) : new Date(),
+      slotDate: new Date(`${scheduledDate}T00:00:00.000Z`),
       isImmediate: !slotId,
       branchId: branchId || null,
       vendor: vendor ? vendor._id : null,
@@ -314,9 +346,9 @@ export const getAllDeliveryRuns = async (req, res) => {
 
     if (status) query.status = status;
     if (date) {
-      const d = new Date(date);
-      d.setHours(0, 0, 0, 0);
-      const e = new Date(d); e.setHours(23, 59, 59, 999);
+      if (!isValidDeliveryDate(date)) return res.status(400).json({ message: 'Date must be a valid date in YYYY-MM-DD format.' });
+      const d = new Date(`${date}T00:00:00.000Z`);
+      const e = new Date(d.getTime() + 86400000 - 1);
       query.slotDate = { $gte: d, $lte: e };
     }
 

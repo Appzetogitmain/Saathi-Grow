@@ -180,7 +180,7 @@ export const createUser = async (req, res) => {
     if (userExists) return res.status(400).json({ message: 'User already exists with this phone number' });
 
     if (name) {
-      const nameRegex = /^[a-zA-Z\s]+$/;
+      const nameRegex = /^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u;
       if (!nameRegex.test(name.trim())) {
         return res.status(400).json({ message: 'Full name should only contain letters and spaces, without numbers or special characters' });
       }
@@ -191,7 +191,8 @@ export const createUser = async (req, res) => {
       email,
       phone,
       role: role || 'user',
-      isActive: true
+      isActive: true,
+      isRegistrationComplete: true
     });
 
     if (req.file) {
@@ -215,7 +216,7 @@ export const updateUser = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     if (req.body.name) {
-      const nameRegex = /^[a-zA-Z\s]+$/;
+      const nameRegex = /^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u;
       if (!nameRegex.test(req.body.name.trim())) {
         return res.status(400).json({ message: 'Full name should only contain letters and spaces, without numbers or special characters' });
       }
