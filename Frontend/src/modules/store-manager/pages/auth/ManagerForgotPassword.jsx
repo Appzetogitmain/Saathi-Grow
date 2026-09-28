@@ -38,7 +38,7 @@ const ManagerForgotPassword = () => {
                 <div className="bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-slate-200/60 overflow-hidden p-8 lg:p-12 text-center group">
                     <div className="flex justify-center mb-8">
                         <div className="w-16 h-16 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center shadow-2xl rotate-3 group-hover:rotate-0 transition-transform duration-500 p-3">
-                            <img src={logo} className="w-full h-full object-contain brightness-0 invert" alt="Saathi-Grow" />
+                            <img src={logo} className="w-full h-full object-contain brightness-0 invert" alt="SaathiGro" />
                         </div>
                     </div>
 

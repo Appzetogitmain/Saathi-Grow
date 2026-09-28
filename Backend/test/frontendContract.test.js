@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import test from 'node:test';
 import mongoose from 'mongoose';
 import { getPublicSettings } from '../src/controllers/settingController.js';
@@ -35,7 +35,10 @@ test('Frontend Contract: GET /api/settings/public includes immediateDeliveryFee 
     maxDeliveryRadius: 20,
     immediateDeliveryEnabled: true,
     deliveryTimezone: 'Asia/Kolkata',
-    slotBookingCutoffMinutes: 30
+    slotBookingCutoffMinutes: 30,
+    holidays: [
+      { date: '2026-10-02', name: 'Gandhi Jayanti', reason: 'National Holiday' }
+    ]
   });
 
   let responseData = null;
@@ -57,6 +60,10 @@ test('Frontend Contract: GET /api/settings/public includes immediateDeliveryFee 
   assert.equal(responseData.immediateDeliveryEnabled, true);
   assert.equal(responseData.baseDeliveryFee, 30);
   assert.equal(responseData.freeDeliveryThreshold, 500);
+  assert.ok(Array.isArray(responseData.holidays), 'holidays must be an array');
+  assert.equal(responseData.holidays.length, 1);
+  assert.equal(responseData.holidays[0].date, '2026-10-02');
+  assert.equal(responseData.holidays[0].name, 'Gandhi Jayanti');
 });
 
 test('Frontend Contract: calculateBill returns all 8 breakdown fields and IGNORES client-submitted fees', async () => {

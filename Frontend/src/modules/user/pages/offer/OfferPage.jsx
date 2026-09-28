@@ -246,7 +246,7 @@ const OfferPage = () => {
         <>
             <SEO 
                 title={offer.title} 
-                description={offer.description || `Claim the best deals on ${offer.title} at Saathi-Grow. Hurry up, festive discounts are live!`}
+                description={offer.description || `Claim the best deals on ${offer.title} at SaathiGro. Hurry up, festive discounts are live!`}
                 image={offer.bannerImage || offer.image}
                 schemaData={{
                     "@context": "https://schema.org/",

@@ -71,7 +71,7 @@ const StaffSidebar = ({ showMobile, onClose }) => {
                 {/* Branding */}
                 <div className="h-[70px] flex items-center px-6 gap-3 mb-6 sticky top-0 bg-slate-950/80 backdrop-blur-md z-10 transition-all border-b border-transparent group-hover:bg-slate-950">
                     <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-2 shadow-lg shadow-white/5 border border-white/10 shrink-0">
-                        <img src={logo} alt="Saathi-Grow" className="w-full h-full object-contain" />
+                        <img src={logo} alt="SaathiGro" className="w-full h-full object-contain" />
                     </div>
                     <div className="min-w-0">
                         <h2 className="text-white font-black text-sm uppercase tracking-tighter leading-none">saathi<span className="text-blue-500">Gro</span></h2>

@@ -300,7 +300,7 @@ export const completeRegistration = async (req, res) => {
 
     // Trigger Production Welcome Flow
     try {
-      const welcomeTitle = 'Welcome to Saathi-Grow! 🏮';
+      const welcomeTitle = 'Welcome to SaathiGro! 🏮';
       const welcomeBody = `Hi ${updatedUser.name}, thank you for joining us. Enjoy fresh products delivered to your doorstep.`;
 
       sendPushNotification(updatedUser._id, 'User', {

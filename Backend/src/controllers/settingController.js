@@ -86,7 +86,14 @@ export const getPublicSettings = async (req, res) => {
       playStoreUrl: settings.playStoreUrl,
       appStoreUrl: settings.appStoreUrl,
       offerStripText: settings.offerStripText,
-      isOfferStripEnabled: settings.isOfferStripEnabled
+      isOfferStripEnabled: settings.isOfferStripEnabled,
+      holidays: Array.isArray(settings.holidays)
+        ? settings.holidays.map(h => ({
+            date: h.date,
+            name: h.name,
+            reason: h.reason || ''
+          }))
+        : []
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching public settings', error: error.message });

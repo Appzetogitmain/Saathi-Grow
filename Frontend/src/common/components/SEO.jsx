@@ -12,14 +12,14 @@ import { Helmet } from 'react-helmet-async';
  */
 const SEO = ({ 
   title, 
-  description = "Saathi-Grow: Premium fresh grocery delivery, organic produce, and daily essentials. Fast delivery, best prices, and quality products at your doorstep. Shop now on SaathiGro!", 
-  keywords = "Saathi-Grow, SaathiGro, grocery delivery, online grocery shopping, fresh vegetables, organic fruits, daily essentials, quick commerce, fresh milk delivery, home delivery grocery, Saathi-Grow store, local shopping",
+  description = "SaathiGro: Premium fresh grocery delivery, organic produce, and daily essentials. Fast delivery, best prices, and quality products at your doorstep. Shop now on SaathiGro!", 
+  keywords = "SaathiGro, grocery delivery, online grocery shopping, fresh vegetables, organic fruits, daily essentials, quick commerce, fresh milk delivery, home delivery grocery, SaathiGro store, local shopping",
   image = "/og-image.jpg", 
   url,
   type = "website",
   schemaData = null
 }) => {
-  const siteName = "Saathi-Grow";
+  const siteName = "SaathiGro";
   const fullTitle = title ? `${title} | ${siteName}` : siteName;
   const canonicalUrl = url || window.location.href;
   // Ensure og:image is always an absolute URL (required for WhatsApp / social crawlers)

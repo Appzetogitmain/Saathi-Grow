@@ -61,7 +61,7 @@ export const pageInfoData = {
 
     onlineOrders: {
         title: 'Online Orders',
-        description: 'Manage all orders placed through the Saathi-Grow mobile/web app by customers. These require picking, packing, and delivery fulfillment.',
+        description: 'Manage all orders placed through the SaathiGro mobile/web app by customers. These require picking, packing, and delivery fulfillment.',
         keyPoints: [
             'See all app-based orders in real-time',
             'Confirm, reject, or put orders on hold',
@@ -474,7 +474,7 @@ export const pageInfoData = {
     // ─── VENDORS ──────────────────────────────────────────────
     allVendors: {
         title: 'All Vendors',
-        description: 'Manage all registered third-party vendor stores on the Saathi-Grow platform. Each vendor has their own product catalog, orders, and payout system.',
+        description: 'Manage all registered third-party vendor stores on the SaathiGro platform. Each vendor has their own product catalog, orders, and payout system.',
         keyPoints: [
             'View all vendors with their status and product counts',
             'Activate, suspend, or deactivate vendor accounts',
@@ -491,7 +491,7 @@ export const pageInfoData = {
 
     addVendor: {
         title: 'Add Vendor',
-        description: 'Onboard a new vendor onto the Saathi-Grow platform. Create their account, set their store details, and configure their payout settings.',
+        description: 'Onboard a new vendor onto the SaathiGro platform. Create their account, set their store details, and configure their payout settings.',
         keyPoints: [
             'Enter vendor business name, contact, and address',
             'Set bank account details for automated payouts',
@@ -823,7 +823,7 @@ export const pageInfoData = {
 
     appSettings: {
         title: 'App Settings',
-        description: 'Configure global application settings that affect the behavior and appearance of the Saathi-Grow customer app.',
+        description: 'Configure global application settings that affect the behavior and appearance of the SaathiGro customer app.',
         keyPoints: [
             'Set minimum order value for delivery',
             'Configure delivery charge rules (free delivery threshold)',

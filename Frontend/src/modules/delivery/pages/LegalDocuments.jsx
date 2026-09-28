@@ -105,7 +105,7 @@ const LegalDocuments = () => {
 
       <div className="mt-8 text-center px-4">
         <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest">
-          Saathi-Grow Delivery Partner Ecosystem
+          SaathiGro Delivery Partner Ecosystem
         </p>
       </div>
     </div>

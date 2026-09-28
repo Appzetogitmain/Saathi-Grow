@@ -100,7 +100,7 @@ const RegisterPage = () => {
             <div className="relative z-10 w-full max-w-md bg-white dark:bg-[#121212] rounded-3xl shadow-2xl border border-gray-100 dark:border-white/10 overflow-hidden transition-all duration-300">
                 {/* Header Branding Banner */}
                 <div className="bg-gradient-to-r from-[#0c831f] to-[#10a827] px-6 py-6 text-white text-center">
-                    <h1 className="text-2xl font-black tracking-wider uppercase">Welcome to Saathi-Grow</h1>
+                    <h1 className="text-2xl font-black tracking-wider uppercase">Welcome to SaathiGro</h1>
                     <p className="text-xs text-green-100 font-medium mt-1">
                         Just one last step to start shopping
                     </p>

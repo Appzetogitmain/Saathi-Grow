@@ -154,7 +154,7 @@ const CampaignProductsPage = () => {
       ` }} />
       <SEO 
         title={campaign?.title || 'Campaign'} 
-        description={campaign?.subtitle || `Explore the finest selection of ${campaign?.title || 'products'} at Saathi-Grow.`}
+        description={campaign?.subtitle || `Explore the finest selection of ${campaign?.title || 'products'} at SaathiGro.`}
         schemaData={{
           "@context": "https://schema.org/",
           "@type": "CollectionPage",

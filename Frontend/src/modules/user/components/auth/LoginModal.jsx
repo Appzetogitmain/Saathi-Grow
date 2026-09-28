@@ -132,7 +132,7 @@ const LoginModal = () => {
                             <User size={28} />
                         </div>
                         <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                            {showOTP ? 'Verify OTP' : 'Welcome to Saathi-Grow'}
+                            {showOTP ? 'Verify OTP' : 'Welcome to SaathiGro'}
                         </h2>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             {showOTP ? `Enter OTP sent to +91 ${phoneNumber}` : 'Enter your mobile number to continue'}

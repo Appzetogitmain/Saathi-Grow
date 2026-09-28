@@ -206,7 +206,7 @@ const CategoryPage = () => {
 
         return (
             <div className="category-products-page category-products-index min-h-screen bg-[#fcfcfc] dark:bg-black p-4 pt-6 pb-24 w-full max-w-full">
-                <SEO title="All Categories" description="Browse through all categories of fresh products and groceries available on Saathi-Grow." />
+                <SEO title="All Categories" description="Browse through all categories of fresh products and groceries available on SaathiGro." />
                 <div className="max-w-6xl mx-auto">
                     {/* Header */}
                     <div className="flex items-center gap-4 mb-8">
@@ -310,7 +310,7 @@ const CategoryPage = () => {
             ` }} />
             <SEO
                 title={currentCategory?.name || 'Category'}
-                description={`Shop for ${currentCategory?.name || 'products'} at Saathi-Grow. Best quality and fast delivery for all your needs.`}
+                description={`Shop for ${currentCategory?.name || 'products'} at SaathiGro. Best quality and fast delivery for all your needs.`}
                 image={currentCategory?.image}
             />
             {/* Sticky Optimized Header - App-like Feel */}

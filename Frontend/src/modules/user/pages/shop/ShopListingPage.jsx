@@ -165,8 +165,8 @@ const ShopListingPage = ({ type }) => {
                 }
             ` }} />
             <SEO
-                title={`${title} - Saathi-Grow`}
-                description={`Browse products from ${title} on Saathi-Grow.`}
+                title={`${title} - SaathiGro`}
+                description={`Browse products from ${title} on SaathiGro.`}
                 image={shopInfo?.logo}
             />
 

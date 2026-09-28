@@ -53,7 +53,7 @@ const StoreManagerSidebar = ({ showMobile, onClose }) => {
                 <div className="h-24 flex items-center px-6 shrink-0">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 flex items-center justify-center shrink-0">
-                            <img src={logo} className="w-full h-full object-contain brightness-0 invert" alt="Saathi-Grow" />
+                            <img src={logo} className="w-full h-full object-contain brightness-0 invert" alt="SaathiGro" />
                         </div>
                         <div className="font-black text-xl tracking-tighter text-white flex flex-col leading-none">
                             <span>saathi<span className="text-blue-500">Gro</span></span>

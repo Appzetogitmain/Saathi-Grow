@@ -338,7 +338,7 @@ const ProductDetailsPage = () => {
         <div className="min-h-screen bg-gradient-to-r from-[#e8f5e9] to-[#ffffff] dark:from-[#141414] dark:to-[#141414] md:bg-none md:bg-white md:dark:bg-[#09090b] pb-20 transition-colors duration-300">
             <SEO
                 title={product.name}
-                description={product.description || `Buy ${product.name} at the best price from Saathi-Grow. Fresh quality and super fast delivery.`}
+                description={product.description || `Buy ${product.name} at the best price from SaathiGro. Fresh quality and super fast delivery.`}
                 image={product.image}
                 type="product"
                 schemaData={{
@@ -346,10 +346,10 @@ const ProductDetailsPage = () => {
                     "@type": "Product",
                     "name": product.name,
                     "image": [product.image, ...product.images],
-                    "description": product.description || `Premium quality ${product.name} available at Saathi-Grow.`,
+                    "description": product.description || `Premium quality ${product.name} available at SaathiGro.`,
                     "brand": {
                         "@type": "Brand",
-                        "name": "Saathi-Grow"
+                        "name": "SaathiGro"
                     },
                     "offers": {
                         "@type": "Offer",

@@ -11,6 +11,7 @@ import { useStore } from '../../context/StoreContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ASSET_URLS } from '../../../../constants/assetUrls';
 import SEO from '../../../../common/components/SEO';
+import HolidayNoticeBanner from '../../components/home/HolidayNoticeBanner';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const categoryPlaceholder = ASSET_URLS.placeholder;
@@ -275,8 +276,11 @@ const HomePage = ({ }) => {
         >
             <SEO
                 title="Fresh Grocery Delivery"
-                description="Get fresh groceries, staples, and daily essentials delivered to your doorstep with Saathi-Grow. Best quality and fast delivery guaranteed."
+                description="Get fresh groceries, staples, and daily essentials delivered to your doorstep with SaathiGro. Best quality and fast delivery guaranteed."
             />
+
+            {/* Dynamic Holiday Notice (Auto-visible 2 days before & on holiday) */}
+            {!isSearching && <HolidayNoticeBanner />}
 
             {/* Premium Offers Carousel */}
             {!isSearching && (

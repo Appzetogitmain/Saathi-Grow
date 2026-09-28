@@ -44,7 +44,7 @@ const LowestPricesPage = () => {
             ` }} />
             <SEO 
                 title="Lowest Prices Ever" 
-                description="Unbeatable deals and lowest prices on fresh groceries, staples, and daily essentials at Saathi-Grow. Save big on your daily shopping!" 
+                description="Unbeatable deals and lowest prices on fresh groceries, staples, and daily essentials at SaathiGro. Save big on your daily shopping!" 
             />
             {/* Compact Header */}
             <div

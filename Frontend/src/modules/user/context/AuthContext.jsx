@@ -102,7 +102,7 @@ export const AuthProvider = ({ children }) => {
             const data = await authApi.completeRegistration(token, formData);
             const userWithToken = data.user ? { ...data.user, token } : null;
             setUser(userWithToken);
-            toast.success('Welcome to Saathi-Grow!');
+            toast.success('Welcome to SaathiGro!');
             return { success: true, user: userWithToken };
         } catch (error) {
             toast.error(error.message);

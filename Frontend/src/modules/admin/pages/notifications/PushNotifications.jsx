@@ -525,7 +525,7 @@ const PushNotifications = () => {
                                     <div className="w-5 h-5 bg-blue-600 rounded flex items-center justify-center">
                                         <Bell size={10} className="text-white" />
                                     </div>
-                                    <span className="text-[9px] font-bold text-slate-900 uppercase">Saathi-Grow</span>
+                                    <span className="text-[9px] font-bold text-slate-900 uppercase">SaathiGro</span>
                                 </div>
                                 <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Now</span>
                             </div>

@@ -58,18 +58,18 @@ const buildOgHtml = (product, productId) => {
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>${escape(name)} | Saathi-Grow</title>
+  <title>${escape(name)} | SaathiGro</title>
   <meta name="description" content="${escape(fullDesc)}" />
   <meta property="og:type" content="product" />
-  <meta property="og:title" content="${escape(name)} | Saathi-Grow" />
+  <meta property="og:title" content="${escape(name)} | SaathiGro" />
   <meta property="og:description" content="${escape(fullDesc)}" />
   <meta property="og:image" content="${absoluteImage}" />
   <meta property="og:image:width" content="800" />
   <meta property="og:image:height" content="800" />
   <meta property="og:url" content="${productUrl}" />
-  <meta property="og:site_name" content="Saathi-Grow" />
+  <meta property="og:site_name" content="SaathiGro" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="${escape(name)} | Saathi-Grow" />
+  <meta name="twitter:title" content="${escape(name)} | SaathiGro" />
   <meta name="twitter:description" content="${escape(fullDesc)}" />
   <meta name="twitter:image" content="${absoluteImage}" />
   <meta http-equiv="refresh" content="0;url=${productUrl}" />

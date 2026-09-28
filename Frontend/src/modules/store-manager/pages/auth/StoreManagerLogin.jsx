@@ -56,7 +56,7 @@ const StoreManagerLogin = () => {
                     <div className="text-center space-y-6 mb-10">
                         <div className="flex justify-center">
                             <div className="w-16 h-16 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center shadow-2xl transition-transform duration-500 p-3">
-                                <img src={logo} className="w-full h-full object-contain brightness-0 invert" alt="Saathi-Grow" />
+                                <img src={logo} className="w-full h-full object-contain brightness-0 invert" alt="SaathiGro" />
                             </div>
                         </div>
                         <div className="space-y-2">

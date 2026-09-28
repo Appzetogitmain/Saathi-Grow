@@ -83,7 +83,7 @@ const LegalPage = () => {
 
         <div className="mt-12 py-8 border-t border-gray-100">
           <p className="text-[9px] text-center text-gray-400 font-bold uppercase tracking-[0.2em]">
-            © {new Date().getFullYear()} Saathi-Grow Platform. All Rights Reserved.
+            © {new Date().getFullYear()} SaathiGro Platform. All Rights Reserved.
           </p>
         </div>
       </main>
