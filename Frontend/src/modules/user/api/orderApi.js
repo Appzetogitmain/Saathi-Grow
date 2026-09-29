@@ -232,3 +232,15 @@ export const submitOrderFeedback = async (token, orderId, rating, comment) => {
   });
   return data;
 };
+
+export const fetchBuyAgainProducts = async (token, params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  const response = await fetch(`${API_URL}/buy-again${query ? `?${query}` : ''}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Failed to fetch buy-again products');
+  return data;
+};

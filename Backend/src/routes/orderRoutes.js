@@ -5,6 +5,7 @@ import {
   createCODOrder,
   calculateBill,
   getMyOrders,
+  getBuyAgainProducts,
   getOrderById,
   getAllOrdersAdmin,
   updateOrderStatus,
@@ -32,6 +33,7 @@ const router = express.Router();
 
 // --- Customer Order Routes ---
 router.get('/myorders', protect, getMyOrders);
+router.get('/buy-again', protect, getBuyAgainProducts);
 router.get('/tags', protect, getUserTags);
 router.get('/by-tag/:tag', protect, getOrdersByTag);
 router.get('/:id', protect, getOrderById);

@@ -12,6 +12,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { ASSET_URLS } from '../../../../constants/assetUrls';
 import SEO from '../../../../common/components/SEO';
 import HolidayNoticeBanner from '../../components/home/HolidayNoticeBanner';
+import BuyAgainSection from '../../components/home/BuyAgainSection';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const categoryPlaceholder = ASSET_URLS.placeholder;
@@ -414,7 +415,10 @@ const HomePage = ({ }) => {
                 </div>
             )}
 
-            {/* Gap between Category and Campaigns */}
+            {/* Personalized Buy Again Section for Logged-in Customers */}
+            {!isSearching && <BuyAgainSection />}
+
+            {/* Gap between Category/BuyAgain and Campaigns */}
             {!isSearching && <div className="h-2 sm:h-4" />}
 
             {/* Dynamic Campaign Sections */}

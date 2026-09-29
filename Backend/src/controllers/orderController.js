@@ -2581,3 +2581,137 @@ export const submitOrderFeedback = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Get user's frequently/recently purchased products for "Buy Again"
+// @route   GET /api/orders/buy-again
+// @access  Private (Customer)
+export const getBuyAgainProducts = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+    const enrichmentStoreId = req.query.storeId || req.query.activeStoreId;
+    const enrichmentStoreType = req.query.storeType || req.query.activeStoreType;
+
+    // 1. Aggregate unique ordered products ranked by frequency & recency
+    const aggregatedProducts = await Order.aggregate([
+      {
+        $match: {
+          user: new mongoose.Types.ObjectId(userId),
+          status: { $nin: ['Cancelled', 'Rejected'] }
+        }
+      },
+      { $unwind: '$items' },
+      {
+        $match: {
+          'items.product': { $exists: true, $ne: null }
+        }
+      },
+      {
+        $group: {
+          _id: '$items.product',
+          purchaseCount: { $sum: 1 },
+          totalQuantity: { $sum: '$items.quantity' },
+          lastOrderedAt: { $max: '$createdAt' }
+        }
+      },
+      {
+        $sort: {
+          purchaseCount: -1,
+          lastOrderedAt: -1
+        }
+      },
+      { $limit: limit }
+    ]);
+
+    if (!aggregatedProducts || aggregatedProducts.length === 0) {
+      return res.json({ products: [], total: 0 });
+    }
+
+    const productIds = aggregatedProducts.map(item => item._id);
+
+    // 2. Fetch full product details
+    const rawProducts = await Product.find({
+      _id: { $in: productIds },
+      status: { $ne: 'Draft' }
+    })
+      .select('name image gallery variants description basePrice mrp category status brandName unitType unitValue isVeg sku branchStocks vendor stock lowStockThreshold averageRating ratingCount displayOrder isSaathigro')
+      .populate('branchStocks.branchId', 'name code logo phone email address')
+      .populate('vendor', 'storeName logo businessType phone email address')
+      .lean();
+
+    const productMap = new Map(rawProducts.map(p => [p._id.toString(), p]));
+
+    // 3. Preserve aggregation ranking & attach purchase statistics
+    let orderedProducts = [];
+    for (const agg of aggregatedProducts) {
+      const p = productMap.get(agg._id.toString());
+      if (p) {
+        orderedProducts.push({
+          ...p,
+          purchaseCount: agg.purchaseCount,
+          totalQuantityOrdered: agg.totalQuantity,
+          lastOrderedAt: agg.lastOrderedAt
+        });
+      }
+    }
+
+    // 4. Inject Store-Aware stock and deliverability if store context is provided
+    if (enrichmentStoreId && enrichmentStoreType) {
+      orderedProducts = orderedProducts.map(pObj => {
+        let isDeliverable = false;
+        let availableStock = 0;
+        let lowStockThreshold = pObj.lowStockThreshold || 10;
+        let inStore = false;
+
+        if (enrichmentStoreType === 'branch') {
+          const branchStock = pObj.branchStocks?.find(bs => {
+            const bId = bs.branchId?._id || bs.branchId;
+            return bId && bId.toString() === enrichmentStoreId.toString();
+          });
+
+          if (branchStock) {
+            inStore = true;
+            availableStock = branchStock.stock || 0;
+            lowStockThreshold = branchStock.lowStockThreshold || 10;
+            if (availableStock > 0) isDeliverable = true;
+          } else if (pObj.vendor) {
+            inStore = true;
+            availableStock = pObj.stock || 0;
+            lowStockThreshold = pObj.lowStockThreshold || 10;
+            if (availableStock > 0) isDeliverable = true;
+          } else if (pObj.isAllBranches) {
+            inStore = true;
+            availableStock = 0;
+            lowStockThreshold = pObj.lowStockThreshold || 10;
+            isDeliverable = false;
+          }
+        } else if (enrichmentStoreType === 'vendor') {
+          const vId = pObj.vendor?._id || pObj.vendor;
+          if (vId && vId.toString() === enrichmentStoreId.toString()) {
+            inStore = true;
+            availableStock = pObj.stock || 0;
+            lowStockThreshold = pObj.lowStockThreshold || 10;
+            if (availableStock > 0) isDeliverable = true;
+          }
+        }
+
+        return {
+          ...pObj,
+          isDeliverable,
+          availableStock,
+          lowStockThreshold,
+          inStore
+        };
+      });
+    }
+
+    res.json({
+      products: orderedProducts,
+      total: orderedProducts.length
+    });
+  } catch (error) {
+    console.error('Error fetching buy-again products:', error);
+    res.status(500).json({ message: 'Failed to fetch buy-again products: ' + error.message });
+  }
+};
+
