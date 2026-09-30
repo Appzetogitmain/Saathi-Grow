@@ -5,6 +5,7 @@ export const createEmptyVariant = () => ({
     type: 'Weight',
     value: '',
     price: '',
+    mrp: '',
     stock: '',
 });
 
@@ -15,6 +16,7 @@ export const normalizeVariantsForSubmit = (variants = [], fallbackPrice = 0) =>
             type: variant.type || 'Weight',
             value: variant.value.trim(),
             price: Number(variant.price) || Number(fallbackPrice) || 0,
+            mrp: variant.mrp != null && variant.mrp !== '' && !isNaN(Number(variant.mrp)) ? Number(variant.mrp) : null,
             stock: Number(variant.stock) || 0,
         }));
 
@@ -30,12 +32,12 @@ const ProductVariantsEditor = ({ variants = [], onChange, fallbackPrice = 0 }) =
     return (
         <div className="space-y-4">
             <p className="text-sm text-slate-500">
-                Add multiple unit options like <span className="font-semibold text-slate-700">500 g</span> or <span className="font-semibold text-slate-700">2 x 500 g</span>. Customers can choose a unit on the product page.
+                Add multiple unit options like <span className="font-semibold text-slate-700">500 g</span> or <span className="font-semibold text-slate-700">2 x 500 g</span>. You can optionally specify an MRP for each variant to show discount savings.
             </p>
 
             {variants.map((variant, index) => (
                 <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-3 p-4 rounded-2xl border border-slate-100 bg-slate-50/60">
-                    <div className="md:col-span-4 space-y-1.5">
+                    <div className="md:col-span-3 space-y-1.5">
                         <label className="text-xs font-semibold text-slate-600">Unit Label</label>
                         <input
                             type="text"
@@ -58,7 +60,20 @@ const ProductVariantsEditor = ({ variants = [], onChange, fallbackPrice = 0 }) =
                             placeholder={fallbackPrice ? String(fallbackPrice) : 'Price'}
                         />
                     </div>
-                    <div className="md:col-span-3 space-y-1.5">
+                    <div className="md:col-span-2 space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-600">MRP (₹)</label>
+                        <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={variant.mrp ?? ''}
+                            onChange={(e) => updateVariant(index, 'mrp', e.target.value)}
+                            onWheel={(e) => e.target.blur()}
+                            className="form-input-simple"
+                            placeholder="Optional"
+                        />
+                    </div>
+                    <div className="md:col-span-2 space-y-1.5">
                         <label className="text-xs font-semibold text-slate-600">Stock</label>
                         <input
                             type="number"
