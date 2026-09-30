@@ -18,6 +18,7 @@ const mapProductVariants = (variants = []) =>
         type: variant.type || 'Weight',
         value: variant.value || '',
         price: variant.price ?? '',
+        mrp: variant.mrp ?? '',
         stock: variant.stock ?? '',
     }));
 

@@ -74,6 +74,7 @@ const productSchema = new mongoose.Schema({
     value: String,
     stock: Number,
     price: Number,
+    mrp: { type: Number, default: null },
     image: String
   }],
   physicalLocation: {

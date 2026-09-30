@@ -108,6 +108,14 @@ const ProductCard = memo(({ product, isCompact = false, customTheme, imgPadding,
     if (!variant || (variant.stock ?? 0) <= 0) return;
     protectAction(() => {
       const variantId = `${productId}::${variant.value}`;
+      const isBaseVariant = Number(variant.price) === Number(product.price) ||
+        (product.weight && String(variant.value).trim().toLowerCase() === String(product.weight).trim().toLowerCase());
+      const variantMrp = Number(
+        (variant.mrp && Number(variant.mrp) > 0)
+          ? variant.mrp
+          : (isBaseVariant ? (product.mrp ?? product.originalPrice ?? 0) : 0)
+      );
+      const hasVariantDiscount = variantMrp > (variant.price ?? product.price ?? 0);
       const payload = {
         ...product,
         id: variantId,
@@ -115,6 +123,8 @@ const ProductCard = memo(({ product, isCompact = false, customTheme, imgPadding,
         name: `${product.name} (${variant.value})`,
         weight: variant.value,
         price: variant.price ?? product.price ?? 0,
+        mrp: variantMrp > 0 ? variantMrp : undefined,
+        originalPrice: hasVariantDiscount ? variantMrp : undefined,
         isDeliverable,
         availableStock: variant.stock,
         maxAllowed: variant.stock,
@@ -122,7 +132,8 @@ const ProductCard = memo(({ product, isCompact = false, customTheme, imgPadding,
           type: variant.type || '',
           value: variant.value,
           price: variant.price,
-          stock: variant.stock
+          stock: variant.stock,
+          mrp: variant.mrp
         }
       };
       addToCart(payload);
@@ -283,7 +294,16 @@ const ProductCard = memo(({ product, isCompact = false, customTheme, imgPadding,
                   >
                     <div>
                       <div className="text-sm font-bold text-gray-900 dark:text-white">{variant.value}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{isOut ? 'Out of stock' : `₹${variant.price ?? product.price}`}</div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 font-bold">
+                          {isOut ? 'Out of stock' : `₹${variant.price ?? product.price}`}
+                        </span>
+                        {!isOut && Number(variant.mrp) > Number(variant.price ?? product.price) && (
+                          <span className="text-[10px] text-gray-400 line-through">
+                            ₹{variant.mrp}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="text-xs font-bold text-[#0c831f]">
                       {variantInCart ? `In cart: ${variantInCart.quantity}` : 'Add'}
