@@ -14,9 +14,14 @@ const CartSidebar = () => {
     const navigate = useNavigate();
 
     // Calculate total bill using dynamic Global Settings synced from backend
-    const itemTotalOriginal = cart.reduce((acc, item) => acc + (item.originalPrice || item.price) * item.quantity, 0);
+    const itemTotalOriginal = cart.reduce((acc, item) => {
+        const itemOriginal = (item.originalPrice && Number(item.originalPrice) > Number(item.price))
+            ? Number(item.originalPrice)
+            : ((item.mrp && Number(item.mrp) > Number(item.price)) ? Number(item.mrp) : Number(item.price));
+        return acc + itemOriginal * item.quantity;
+    }, 0);
     const itemTotalDiscounted = cartTotal;
-    const savings = itemTotalOriginal - itemTotalDiscounted;
+    const savings = Math.max(0, itemTotalOriginal - itemTotalDiscounted);
 
     const baseDelivery = publicSettings?.baseDeliveryFee ?? 25;
     const thresh = publicSettings?.freeDeliveryThreshold ?? 500;
@@ -140,7 +145,14 @@ const CartSidebar = () => {
                                         <div className="flex-1 min-w-0 text-left">
                                             <div className="!text-[10px] font-black text-gray-800 dark:text-gray-100 leading-tight mb-0.5 line-clamp-2 tracking-tight uppercase">{item.name}</div>
                                             <p className="!text-[8px] text-gray-400 font-bold mb-1 uppercase tracking-widest opacity-70">{item.weight}</p>
-                                            <p className="font-black text-gray-900 dark:text-gray-100 !text-[12px]">₹{item.price}</p>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="font-black text-gray-900 dark:text-gray-100 !text-[12px]">₹{item.price}</span>
+                                                {((item.originalPrice && Number(item.originalPrice) > Number(item.price)) || (item.mrp && Number(item.mrp) > Number(item.price))) && (
+                                                    <span className="line-through text-gray-400 dark:text-zinc-500 text-[10px] font-semibold">
+                                                        ₹{item.originalPrice || item.mrp}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className={`flex items-center bg-[#0c831f] text-white rounded-lg h-6.5 w-[64px] shadow-md shadow-green-500/10 overflow-hidden flex-shrink-0 quantity-selector ${isStoreOutOfRange ? 'bg-gray-400 cursor-not-allowed opacity-80' : ''}`}>
                                             <button

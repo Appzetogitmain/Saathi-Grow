@@ -27,7 +27,10 @@ const ProductCard = memo(({ product, isCompact = false, customTheme, imgPadding,
 
   const cartItem = cart.find(item => item.id === productId);
   const quantity = cartItem ? cartItem.quantity : 0;
-  const savings = product.originalPrice ? product.originalPrice - product.price : 0;
+  const effectiveOriginalPrice = (product.originalPrice && Number(product.originalPrice) > Number(product.price))
+    ? Number(product.originalPrice)
+    : ((product.mrp && Number(product.mrp) > Number(product.price)) ? Number(product.mrp) : null);
+  const savings = effectiveOriginalPrice ? (effectiveOriginalPrice - Number(product.price)) : 0;
 
   // Dynamic availability evaluation based on nearbyStores
   const productVendorId = (product.vendor?._id || product.vendor)?.toString();
@@ -151,9 +154,11 @@ const ProductCard = memo(({ product, isCompact = false, customTheme, imgPadding,
         className="absolute inset-0 rounded-lg sm:rounded-xl border-[1.5px] md:border-transparent pointer-events-none z-30 opacity-50"
         style={{ borderColor: customTheme ? `${customTheme.themeColor}20` : '#0c831f20' }}
       />
-      <div className="absolute top-0 left-0 bg-[#0c831f] text-white text-[7.5px] sm:text-[10px] font-bold px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-br-lg z-30 shadow-sm flex items-center gap-0.5">
-        <span>Save ₹{Number(savings).toFixed(2)}</span>
-      </div>
+      {savings > 0 && (
+        <div className="absolute top-0 left-0 bg-[#0c831f] text-white text-[7.5px] sm:text-[10px] font-bold px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-br-lg z-30 shadow-sm flex items-center gap-0.5">
+          <span>Save ₹{Number(savings).toFixed(2)}</span>
+        </div>
+      )}
 
       {/* Rating Badge */}
       {product.averageRating > 0 && (
@@ -213,8 +218,8 @@ const ProductCard = memo(({ product, isCompact = false, customTheme, imgPadding,
         {/* Bottom Row: Price & Action */}
         <div className={`flex items-center justify-between mt-auto z-10 ${isLowestPrice ? 'gap-1' : ''}`}>
           <div className="flex flex-col">
-            {product.originalPrice && product.originalPrice > product.price && (
-              <span className="text-gray-400 dark:text-zinc-600 line-through text-[10px] sm:text-[11px] font-medium leading-none">₹{product.originalPrice}</span>
+            {effectiveOriginalPrice && effectiveOriginalPrice > product.price && (
+              <span className="text-gray-400 dark:text-zinc-600 line-through text-[10px] sm:text-[11px] font-medium leading-none">₹{effectiveOriginalPrice}</span>
             )}
             <span className="text-[14px] sm:text-[19px] font-bold text-gray-900 dark:text-white tracking-tighter leading-tight">₹{product.price}</span>
           </div>

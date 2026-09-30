@@ -206,6 +206,11 @@ const ManagerOrders = () => {
                                                         ⚡ Express
                                                     </span>
                                                 )}
+                                                {(order.deliveryInstructions?.chips?.length > 0 || order.deliveryInstructions?.customNote) && (
+                                                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[8px] font-black px-1.5 py-0.5 rounded uppercase" title={order.deliveryInstructions.customNote || order.deliveryInstructions.chips?.join(', ')}>
+                                                        📝 Instructions
+                                                    </span>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="px-6 py-5 text-center">

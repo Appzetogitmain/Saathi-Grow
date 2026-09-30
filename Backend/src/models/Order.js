@@ -230,6 +230,10 @@ const orderSchema = new mongoose.Schema({
         rating: { type: Number, min: 1, max: 5, default: null },
         comment: { type: String, default: null },
         submittedAt: { type: Date, default: null }
+    },
+    deliveryInstructions: {
+        chips: [{ type: String, trim: true }],
+        customNote: { type: String, default: null, trim: true, maxlength: 300 }
     }
 }, {
     timestamps: true

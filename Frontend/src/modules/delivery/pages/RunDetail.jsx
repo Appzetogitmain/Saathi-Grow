@@ -4,7 +4,7 @@ import { getDeliveryDetail } from '../services/deliveryService';
 import useDeliveryStore from '../store/deliveryStore';
 import { 
     ChevronLeft, Loader2, Package, MapPin, 
-    CheckCircle2, AlertCircle, Phone, Truck, ArrowRight
+    CheckCircle2, AlertCircle, Phone, Truck, ArrowRight, FileText
 } from 'lucide-react';
 
 const RunDetail = () => {
@@ -228,6 +228,32 @@ const RunDetail = () => {
                                     {order?.shippingAddress?.street}, {order?.shippingAddress?.city}, {order?.shippingAddress?.state} {order?.shippingAddress?.zipCode}
                                 </p>
                             </div>
+
+                            {/* Customer Delivery Instructions */}
+                            {(order?.deliveryInstructions?.chips?.length > 0 || order?.deliveryInstructions?.customNote) && (
+                                <div className="mb-5 p-3.5 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-800/40 rounded-2xl">
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <FileText size={12} className="text-amber-600 dark:text-amber-400" />
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                                            Customer Delivery Instructions
+                                        </span>
+                                    </div>
+                                    {order.deliveryInstructions.chips?.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5 mb-2">
+                                            {order.deliveryInstructions.chips.map((chip, cIdx) => (
+                                                <span key={cIdx} className="px-2.5 py-1 bg-white dark:bg-zinc-800 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-700/50 rounded-full text-[11px] font-bold shadow-2xs">
+                                                    ✓ {chip}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {order.deliveryInstructions.customNote && (
+                                        <div className="bg-white/90 dark:bg-black/30 p-2.5 rounded-xl border border-amber-100 dark:border-white/5 text-xs text-amber-950 dark:text-amber-100 font-semibold">
+                                            "{order.deliveryInstructions.customNote}"
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="pl-2">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-[#028A0F] mb-3 flex items-center gap-2">

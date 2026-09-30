@@ -19,7 +19,9 @@ import {
     Loader2,
     Calendar,
     Ticket,
-    Gift
+    Gift,
+    FileText,
+    Check
 } from 'lucide-react';
 
 import { useLocation as useGlobalLocation } from '../../context/LocationContext';
@@ -40,6 +42,14 @@ const loadRazorpaySDK = () => {
         document.body.appendChild(script);
     });
 };
+
+const INSTRUCTION_CHIPS = [
+    { id: 'DONT_RING_BELL', label: "Don't ring bell", icon: '🔕' },
+    { id: 'LEAVE_AT_DOOR', label: 'Leave at door', icon: '🚪' },
+    { id: 'LEAVE_WITH_GUARD', label: 'Leave with guard', icon: '🛡️' },
+    { id: 'CALL_BEFORE_DELIVERY', label: 'Call on arrival', icon: '📞' },
+    { id: 'PET_ON_PREMISES', label: 'Pet on premises', icon: '🐾' }
+];
 
 const CheckoutPage = () => {
     const { cartTotal = 0, clearCart, cartCount = 0, cart = [] } = useCart();
@@ -72,6 +82,8 @@ const CheckoutPage = () => {
     const [availablePromos, setAvailablePromos] = useState([]);
     const [upsellingPromos, setUpsellingPromos] = useState([]);
     const [loadingPromos, setLoadingPromos] = useState(false);
+    const [selectedInstructions, setSelectedInstructions] = useState([]);
+    const [customInstructionNote, setCustomInstructionNote] = useState('');
 
     const [shippingAddressForm, setShippingAddressForm] = useState({
         street: '',
@@ -81,6 +93,13 @@ const CheckoutPage = () => {
         landmark: ''
     });
     const navigate = useNavigate();
+    const itemTotalOriginal = cart.reduce((acc, item) => {
+        const itemOriginal = (item.originalPrice && Number(item.originalPrice) > Number(item.price))
+            ? Number(item.originalPrice)
+            : ((item.mrp && Number(item.mrp) > Number(item.price)) ? Number(item.mrp) : Number(item.price));
+        return acc + itemOriginal * item.quantity;
+    }, 0);
+    const productSavings = Math.max(0, itemTotalOriginal - cartTotal);
     const isCityOnlySelection = (loc) => {
         if (!loc) return false;
         const address = (loc.address || '').trim().toLowerCase();
@@ -433,7 +452,11 @@ const CheckoutPage = () => {
             isImmediate,                                                     // NEW: flag
             storeId: activeStore?.id,
             storeType: activeStore?.type,
-            promoId: appliedPromo?._id
+            promoId: appliedPromo?._id,
+            deliveryInstructions: (selectedInstructions.length > 0 || customInstructionNote.trim()) ? {
+                chips: selectedInstructions,
+                customNote: customInstructionNote.trim() || null
+            } : undefined
         };
 
         const maybeSaveAddressAfterOrder = async () => {
@@ -901,6 +924,69 @@ const CheckoutPage = () => {
                     )}
                 </div>
 
+                {/* Delivery Instructions & Order Notes */}
+                <div className="mb-10">
+                    <div className="flex items-center gap-2 mb-4 px-1">
+                        <FileText size={14} className="text-[#0c831f]" />
+                        <h3 className="!text-[10px] font-black text-gray-400 tracking-widest uppercase">Delivery Instructions</h3>
+                    </div>
+                    
+                    <div className="bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-3xl p-4 sm:p-5 shadow-sm space-y-4">
+                        {/* Quick 1-Tap Chips */}
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">
+                                Quick Instructions for Delivery Partner
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {INSTRUCTION_CHIPS.map((chip) => {
+                                    const isSelected = selectedInstructions.includes(chip.label);
+                                    return (
+                                        <button
+                                            key={chip.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedInstructions(prev =>
+                                                    prev.includes(chip.label)
+                                                        ? prev.filter(c => c !== chip.label)
+                                                        : [...prev, chip.label]
+                                                );
+                                            }}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                                                isSelected
+                                                    ? 'bg-[#0c831f] text-white border-[#0c831f] shadow-sm shadow-green-500/20 scale-[1.02]'
+                                                    : 'bg-gray-50 dark:bg-zinc-800/80 text-gray-700 dark:text-zinc-200 border-gray-200/80 dark:border-white/10 hover:border-[#0c831f]/50'
+                                            }`}
+                                        >
+                                            <span>{chip.icon}</span>
+                                            <span>{chip.label}</span>
+                                            {isSelected && <Check size={12} strokeWidth={3} className="ml-0.5" />}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Custom Note Textarea */}
+                        <div className="pt-2 border-t border-gray-100 dark:border-white/5">
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                    Add Note / Special Instructions
+                                </label>
+                                <span className="text-[9px] font-medium text-gray-400">
+                                    {customInstructionNote.length}/250
+                                </span>
+                            </div>
+                            <textarea
+                                value={customInstructionNote}
+                                onChange={(e) => setCustomInstructionNote(e.target.value.slice(0, 250))}
+                                placeholder="e.g. Ring twice, call upon reaching the main gate, or packing preferences..."
+                                rows={2}
+                                className="w-full text-xs font-medium p-3 rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-zinc-900 text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-[#0c831f] transition-all resize-none"
+                            />
+                        </div>
+                    </div>
+                </div>
+
                 <div className="mb-10">
                     <div className="flex items-center gap-2 mb-4 px-1">
                         <Clock size={14} className="text-[#0c831f]" />
@@ -1137,8 +1223,19 @@ const CheckoutPage = () => {
                     <div className="space-y-3 px-1">
                         <div className="flex justify-between items-center">
                             <span className="text-[11px] text-gray-500 font-medium capitalize">Items total</span>
-                            <span className="text-[11px] font-black text-gray-900 dark:text-white">₹{cartTotal}</span>
+                            <div className="flex items-center gap-1.5 font-black text-[11px]">
+                                {productSavings > 0 && (
+                                    <span className="line-through text-gray-400 dark:text-zinc-500 font-normal">₹{itemTotalOriginal}</span>
+                                )}
+                                <span className="text-gray-900 dark:text-white">₹{cartTotal}</span>
+                            </div>
                         </div>
+                        {productSavings > 0 && (
+                            <div className="flex justify-between items-center text-[#0c831f] animate-in slide-in-from-left duration-300">
+                                <span className="text-[11px] font-bold capitalize">Product Savings</span>
+                                <span className="text-[11px] font-black">−₹{productSavings.toFixed(2)}</span>
+                            </div>
+                        )}
                         {billDetails?.immediateDeliveryFee > 0 ? (
                             <>
                                 <div className="flex justify-between items-center">

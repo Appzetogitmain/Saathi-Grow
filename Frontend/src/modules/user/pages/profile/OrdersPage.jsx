@@ -61,7 +61,8 @@ const OrdersPage = () => {
                         paymentMethod: o.paymentMethod,
                         isImmediate: Boolean(o.isImmediate || o.immediateDeliveryFee > 0),
                         deliveryOTP: o.deliveryOTP,
-                        returnRequest: o.returnRequest
+                        returnRequest: o.returnRequest,
+                        deliveryInstructions: o.deliveryInstructions
                     }
                 });
 
@@ -163,6 +164,11 @@ const OrdersPage = () => {
                                             <div className="inline-block px-2 py-0.5 rounded text-[8px] md:text-[10px] font-black tracking-widest uppercase bg-slate-100 text-slate-600 border border-slate-200">
                                                 PAYMENT: {order.paymentMethod === 'cod' ? 'COD' : 'ONLINE'}
                                             </div>
+                                            {(order.deliveryInstructions?.chips?.length > 0 || order.deliveryInstructions?.customNote) && (
+                                                <div className="inline-block px-2 py-0.5 rounded text-[8px] md:text-[10px] font-bold tracking-wide bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-500/10 dark:border-emerald-500/20">
+                                                    📝 {order.deliveryInstructions.chips?.[0] || 'Note'}{order.deliveryInstructions.chips?.length > 1 ? ` +${order.deliveryInstructions.chips.length - 1}` : ''}
+                                                </div>
+                                            )}
                                             {order.isImmediate && (
                                                 <div className="inline-block px-2 py-0.5 rounded text-[8px] md:text-[10px] font-black tracking-widest uppercase bg-green-50 text-[#0c831f] border border-green-200 dark:bg-green-500/10 dark:border-green-500/20">
                                                     ⚡ Express

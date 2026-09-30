@@ -21,6 +21,14 @@ const CartPage = () => {
   const [upsellingPromos, setUpsellingPromos] = React.useState([]);
   const [loadingPromos, setLoadingPromos] = React.useState(false);
 
+  const itemTotalOriginal = cart.reduce((acc, item) => {
+    const itemOriginal = (item.originalPrice && Number(item.originalPrice) > Number(item.price))
+      ? Number(item.originalPrice)
+      : ((item.mrp && Number(item.mrp) > Number(item.price)) ? Number(item.mrp) : Number(item.price));
+    return acc + itemOriginal * item.quantity;
+  }, 0);
+  const savings = Math.max(0, itemTotalOriginal - cartTotal);
+
   const finalTotal = cartTotal + estimatedDeliveryFee + handlingFee;
   const remainingForFreeDelivery = Math.max(0, thresh - cartTotal);
 
@@ -121,7 +129,14 @@ const CartPage = () => {
                   <div className="flex-1">
                     <div className="flex justify-between items-start mb-1">
                       <h3 className="font-semibold text-gray-800 dark:text-white text-sm">{item.name}</h3>
-                      <span className="font-semibold text-gray-900 dark:text-white">?{item.price * item.quantity}</span>
+                      <div className="text-right">
+                        <span className="font-semibold text-gray-900 dark:text-white">₹{item.price * item.quantity}</span>
+                        {((item.originalPrice && Number(item.originalPrice) > Number(item.price)) || (item.mrp && Number(item.mrp) > Number(item.price))) && (
+                          <span className="block text-xs text-gray-400 dark:text-zinc-500 line-through">
+                            ₹{(item.originalPrice || item.mrp) * item.quantity}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{item.weight}</p>
                     <div className="flex items-center justify-between">
@@ -157,8 +172,17 @@ const CartPage = () => {
             <div className="space-y-3 text-sm">
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
                 <span>Item Total</span>
-                <span>₹{cartTotal}</span>
+                <div className="flex items-center gap-1.5 font-semibold">
+                  {savings > 0 && <span className="line-through text-gray-400 dark:text-zinc-500 font-normal">₹{itemTotalOriginal}</span>}
+                  <span>₹{cartTotal}</span>
+                </div>
               </div>
+              {savings > 0 && (
+                <div className="flex justify-between text-[#0c831f] dark:text-emerald-400 font-bold">
+                  <span>Product Savings</span>
+                  <span>−₹{savings.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
                 <span>Delivery Fee</span>
                 <span className={estimatedDeliveryFee === 0 ? 'text-emerald-600 dark:text-emerald-400 font-bold' : ''}>

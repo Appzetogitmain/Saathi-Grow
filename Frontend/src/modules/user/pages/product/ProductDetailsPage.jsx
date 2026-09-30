@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useStore } from '../../context/StoreContext';
 import { toast } from 'react-toastify';
 import SEO from '../../../../common/components/SEO';
+import { normalizeProduct } from '../home/HomePage';
 
 const ProductDetailsPage = () => {
     const { id } = useParams();
@@ -287,6 +288,10 @@ const ProductDetailsPage = () => {
     const selectedVariant = hasVariants ? product.variants[selectedVariantIndex] : null;
     const cartItemId = selectedVariant ? `${product.id}::${selectedVariant.value}` : (product?.id || id);
     const activePrice = selectedVariant?.price ?? product?.price ?? 0;
+    const activeMrp = Number(selectedVariant?.mrp ?? product?.mrp ?? product?.originalPrice ?? 0);
+    const hasDiscount = activeMrp > activePrice;
+    const activeSavings = hasDiscount ? (activeMrp - activePrice) : 0;
+    const activeDiscountPercent = hasDiscount ? Math.round(((activeMrp - activePrice) / activeMrp) * 100) : 0;
     const activeStock = selectedVariant?.stock ?? product?.availableStock ?? 999;
     const activeWeight = selectedVariant?.value || product?.weight;
     const cartItem = cart.find(item => item.id === cartItemId);
@@ -297,6 +302,8 @@ const ProductDetailsPage = () => {
         id: cartItemId,
         productId: product.id,
         price: activePrice,
+        mrp: activeMrp > 0 ? activeMrp : undefined,
+        originalPrice: hasDiscount ? activeMrp : undefined,
         weight: activeWeight,
         availableStock: activeStock,
         maxAllowed: activeStock,
@@ -305,6 +312,7 @@ const ProductDetailsPage = () => {
             value: selectedVariant.value,
             price: selectedVariant.price,
             stock: selectedVariant.stock,
+            mrp: selectedVariant.mrp
         } : null,
         name: selectedVariant ? `${product.name} (${selectedVariant.value})` : product.name,
     });
@@ -464,8 +472,23 @@ const ProductDetailsPage = () => {
                             </div>
                         )}
 
-                        <div className="text-lg font-bold text-[#0c831f] dark:text-[#10b981] mb-2">
-                            ₹ {activePrice}.00
+                        <div className="flex items-center gap-2.5 mb-2 flex-wrap">
+                            <span className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">
+                                ₹{activePrice}
+                            </span>
+                            {hasDiscount && (
+                                <>
+                                    <span className="text-gray-400 dark:text-zinc-500 line-through text-base sm:text-lg font-semibold">
+                                        ₹{activeMrp}
+                                    </span>
+                                    <span className="bg-[#0c831f] text-white text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">
+                                        Save ₹{activeSavings.toFixed(2)}
+                                    </span>
+                                    <span className="bg-[#0c831f]/10 text-[#0c831f] dark:bg-[#0c831f]/20 text-[10px] sm:text-xs font-black px-2 py-0.5 rounded-full border border-[#0c831f]/20">
+                                        {activeDiscountPercent}% OFF
+                                    </span>
+                                </>
+                            )}
                         </div>
 
                         {activeStock > 0 && (
@@ -527,8 +550,15 @@ const ProductDetailsPage = () => {
 
                         <div className="mb-1">
                             <p className="text-[10px] text-gray-500 font-medium mb-0.5 uppercase tracking-widest">Total Amount:</p>
-                            <div className="text-2xl md:text-3xl font-black text-[#0c831f] dark:text-[#10b981]">
-                                ₹ {activePrice * (quantity || 1)}.00
+                            <div className="flex items-center gap-2">
+                                <div className="text-2xl md:text-3xl font-black text-[#0c831f] dark:text-[#10b981]">
+                                    ₹ {activePrice * (quantity || 1)}.00
+                                </div>
+                                {hasDiscount && (
+                                    <span className="text-gray-400 dark:text-zinc-500 line-through text-base font-semibold">
+                                        ₹{activeMrp * (quantity || 1)}.00
+                                    </span>
+                                )}
                             </div>
                         </div>
 
@@ -929,15 +959,8 @@ const RecommendationSections = ({ id, category, activeStore }) => {
                         storeId: activeStore?.id,
                         storeType: activeStore?.type
                     });
-                    const sim = (Array.isArray(simres) ? simres : (simres?.products || [])).filter(simP => simP._id !== id).map(simP => ({
-                        id: simP._id,
-                        name: simP.name,
-                        image: simP.image || (simP.gallery && simP.gallery.length > 0 ? simP.gallery[0] : ''),
-                        price: simP.basePrice,
-                        mrp: simP.mrp,
-                        weight: `${simP.unitValue} ${simP.unitType}`,
-                        isDeliverable: simP.isDeliverable
-                    }));
+                    const rawSim = (Array.isArray(simres) ? simres : (simres?.products || [])).filter(simP => simP._id !== id);
+                    const sim = rawSim.map(normalizeProduct);
                     setSimilarProducts(sim);
                 } catch (simErr) {
                     console.error("Failed to load similar products:", simErr);
@@ -951,15 +974,8 @@ const RecommendationSections = ({ id, category, activeStore }) => {
                     storeId: activeStore?.id,
                     storeType: activeStore?.type
                 });
-                const rec = (Array.isArray(recres) ? recres : (recres?.products || [])).filter(recP => recP._id !== id).sort(() => Math.random() - 0.5).slice(0, 8).map(recP => ({
-                    id: recP._id,
-                    name: recP.name,
-                    image: recP.image || (recP.gallery && recP.gallery.length > 0 ? recP.gallery[0] : ''),
-                    price: recP.basePrice,
-                    mrp: recP.mrp,
-                    weight: `${recP.unitValue} ${recP.unitType}`,
-                    isDeliverable: recP.isDeliverable
-                }));
+                const rawRec = (Array.isArray(recres) ? recres : (recres?.products || [])).filter(recP => recP._id !== id).sort(() => Math.random() - 0.5).slice(0, 8);
+                const rec = rawRec.map(normalizeProduct);
                 setRecommendedProducts(rec);
             } catch (recErr) {
                 console.error("Failed to load recommended products:", recErr);

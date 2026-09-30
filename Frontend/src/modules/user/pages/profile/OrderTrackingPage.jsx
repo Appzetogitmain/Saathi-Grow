@@ -4,7 +4,7 @@ import { GoogleMap, MarkerF, Polyline, useJsApiLoader } from '@react-google-maps
 import { db } from '../../../../config/firebase';
 import { ref, onValue, off } from 'firebase/database';
 import polylineUtil from '@mapbox/polyline';
-import { Phone, ChevronLeft, Star, Clock, AlertCircle, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Phone, ChevronLeft, Star, Clock, AlertCircle, Loader2, CheckCircle, XCircle, FileText } from 'lucide-react';
 import { motion, useDragControls } from 'framer-motion';
 import * as orderApi from '../../api/orderApi';
 import { useAuth } from '../../context/AuthContext';
@@ -643,6 +643,35 @@ const OrderTrackingPage = () => {
                 </a>
               )}
             </div>
+
+            {/* Delivery Instructions */}
+            {(order.deliveryInstructions?.chips?.length > 0 || order.deliveryInstructions?.customNote) && (
+              <div className="mt-4 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 rounded-2xl border border-emerald-200/60 dark:border-emerald-500/20">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <FileText size={13} className="text-[#00c982]" />
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                    Instructions for Delivery Partner
+                  </span>
+                </div>
+                {order.deliveryInstructions.chips?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {order.deliveryInstructions.chips.map((chip, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2.5 py-1 bg-white dark:bg-zinc-800 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700/50 rounded-full text-[11px] font-bold shadow-2xs"
+                      >
+                        ✓ {chip}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {order.deliveryInstructions.customNote && (
+                  <p className="text-xs text-gray-700 dark:text-gray-300 bg-white/80 dark:bg-black/20 p-2.5 rounded-xl border border-emerald-100 dark:border-white/5 font-medium italic">
+                    "{order.deliveryInstructions.customNote}"
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Order Details Dropdown/Section */}
             <div className="mt-4 bg-gray-50 dark:bg-white/5 p-4 rounded-2xl border border-gray-100 dark:border-white/10">

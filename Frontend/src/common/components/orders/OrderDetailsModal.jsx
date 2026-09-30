@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Download, Package, User, MapPin, CreditCard, Clock, X, Truck, Zap, CheckCircle, Star } from 'lucide-react';
+import { Download, Package, User, MapPin, CreditCard, Clock, X, Truck, Zap, CheckCircle, Star, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getAvailablePartners, assignOrder, autoAssignOrder } from '../../api/adminDeliveryApi';
 import { getOrderDetails, updateOrderStatus } from '../../api/orderApi';
@@ -345,6 +345,29 @@ const OrderDetailsModal = ({ show, onHide, order, onOrderUpdate }) => {
                                     {displayOrder.feedback.comment && (
                                         <p className="text-xs text-slate-700 italic bg-white p-3 rounded border border-yellow-200 mt-2 font-medium">
                                             "{displayOrder.feedback.comment}"
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Delivery Instructions */}
+                            {(displayOrder.deliveryInstructions?.chips?.length > 0 || displayOrder.deliveryInstructions?.customNote) && (
+                                <div className="mb-6 p-4 rounded-lg bg-emerald-50/70 border border-emerald-200/80">
+                                    <p className="text-[10px] font-bold text-emerald-800 uppercase mb-2 flex items-center gap-2">
+                                        <FileText size={14} className="text-emerald-600" /> Customer Delivery Instructions & Note
+                                    </p>
+                                    {displayOrder.deliveryInstructions.chips?.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5 mb-2">
+                                            {displayOrder.deliveryInstructions.chips.map((chip, idx) => (
+                                                <span key={idx} className="px-2.5 py-1 bg-white text-emerald-800 border border-emerald-200 rounded-full text-xs font-bold shadow-2xs">
+                                                    ✓ {chip}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {displayOrder.deliveryInstructions.customNote && (
+                                        <p className="text-xs text-emerald-950 font-medium bg-white p-3 rounded border border-emerald-100 italic">
+                                            "{displayOrder.deliveryInstructions.customNote}"
                                         </p>
                                     )}
                                 </div>

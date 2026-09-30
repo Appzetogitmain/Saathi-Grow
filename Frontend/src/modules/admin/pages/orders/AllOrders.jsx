@@ -739,6 +739,13 @@ const AllOrders = () => {
                                             <span className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
                                                 #{order.orderId || order._id}
                                             </span>
+                                            {(order.deliveryInstructions?.chips?.length > 0 || order.deliveryInstructions?.customNote) && (
+                                                <div className="mt-1">
+                                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded" title={order.deliveryInstructions.customNote || order.deliveryInstructions.chips?.join(', ')}>
+                                                        📝 Instructions
+                                                    </span>
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4">
                                             <div>

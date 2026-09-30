@@ -454,6 +454,11 @@ const OnlineOrders = () => {
                                                 {order.razorpayPaymentId && (
                                                     <span className="text-[9px] text-slate-400 font-medium mt-1">rzp: {order.razorpayPaymentId.slice(-8)}</span>
                                                 )}
+                                                {(order.deliveryInstructions?.chips?.length > 0 || order.deliveryInstructions?.customNote) && (
+                                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded mt-1 w-fit" title={order.deliveryInstructions.customNote || order.deliveryInstructions.chips?.join(', ')}>
+                                                        📝 Instructions
+                                                    </span>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MessageSquare, AlertCircle, RefreshCw, XCircle, ChevronRight, Package, Truck, CheckCircle, Navigation as NavIcon, Shield, ShieldCheck, ShoppingBag, Tag, X, Check, Pencil, Star } from 'lucide-react';
+import { ArrowLeft, MessageSquare, AlertCircle, RefreshCw, XCircle, ChevronRight, Package, Truck, CheckCircle, Navigation as NavIcon, Shield, ShieldCheck, ShoppingBag, Tag, X, Check, Pencil, Star, FileText } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import * as orderApi from '../../api/orderApi';
 import { toast } from 'react-toastify';
@@ -65,6 +65,7 @@ const OrderDetailsPage = () => {
                 taxAmount: data.taxAmount || 0,
                 handlingFee: data.handlingFee || 0,
                 discountAmount: data.discountAmount || 0,
+                deliveryInstructions: data.deliveryInstructions || null,
                 total: data.totalAmount,
                 items: data.items.map(item => {
                     const weight = resolveWeight(item);
@@ -482,6 +483,31 @@ const OrderDetailsPage = () => {
                             ))}
                         </div>
                     </div>
+
+                    {/* Delivery Instructions */}
+                    {(order.deliveryInstructions?.chips?.length > 0 || order.deliveryInstructions?.customNote) && (
+                        <div className="bg-white dark:bg-[#1c1c1c] border border-gray-100 dark:border-white/5 rounded-2xl p-4 shadow-sm space-y-2">
+                            <div className="flex items-center gap-2 mb-2">
+                                <FileText size={13} className="text-[#0c831f]" />
+                                <h3 className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Delivery Instructions</h3>
+                            </div>
+                            {order.deliveryInstructions.chips?.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {order.deliveryInstructions.chips.map((chip, idx) => (
+                                        <span key={idx} className="px-2.5 py-1 bg-green-50 dark:bg-green-500/10 text-[#0c831f] border border-green-200/60 dark:border-green-500/20 rounded-full text-[11px] font-bold">
+                                            ✓ {chip}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            {order.deliveryInstructions.customNote && (
+                                <div className="bg-gray-50 dark:bg-white/5 p-3 rounded-xl border border-gray-100 dark:border-white/5 text-[12px] font-medium text-gray-800 dark:text-gray-200">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide block mb-0.5">Note for Partner:</span>
+                                    "{order.deliveryInstructions.customNote}"
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Bill Details */}
                     <div className="bg-white dark:bg-[#1c1c1c] border border-gray-100 dark:border-white/5 rounded-2xl p-4 shadow-sm">

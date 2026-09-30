@@ -301,6 +301,18 @@ export const computeBillDetails = async (items, options = {}) => {
   };
 };
 
+export const sanitizeDeliveryInstructions = (instructions) => {
+  if (!instructions || typeof instructions !== 'object') return undefined;
+  const chips = Array.isArray(instructions.chips)
+    ? instructions.chips.map(c => String(c).trim().slice(0, 50)).filter(Boolean)
+    : [];
+  const customNote = instructions.customNote
+    ? String(instructions.customNote).trim().slice(0, 300)
+    : null;
+  if (chips.length === 0 && !customNote) return undefined;
+  return { chips, customNote };
+};
+
 // @desc    Initiate an online order via Razorpay
 export const createRazorpayOrder = async (req, res) => {
   try {
@@ -470,6 +482,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       freeGiftSnapshot: computedBill.freeGift
         ? { title: computedBill.freeGift.title || null, description: computedBill.freeGift.description || null, image: computedBill.freeGift.image || null }
         : null,
+      deliveryInstructions: sanitizeDeliveryInstructions(orderData.deliveryInstructions),
       vendor: orderData.vendorId,
       ...deliveryTiming,
       razorpayOrderId: razorpayOrderId,
@@ -1027,6 +1040,7 @@ export const createCODOrder = async (req, res) => {
       freeGiftSnapshot: computedBill.freeGift
         ? { title: computedBill.freeGift.title || null, description: computedBill.freeGift.description || null, image: computedBill.freeGift.image || null }
         : null,
+      deliveryInstructions: sanitizeDeliveryInstructions(orderData.deliveryInstructions),
       vendor: orderData.vendorId,
       ...deliveryTiming,
     });
@@ -1178,6 +1192,7 @@ export const createWalletOrder = async (req, res) => {
       freeGiftSnapshot: computedBill.freeGift
         ? { title: computedBill.freeGift.title || null, description: computedBill.freeGift.description || null, image: computedBill.freeGift.image || null }
         : null,
+      deliveryInstructions: sanitizeDeliveryInstructions(orderData.deliveryInstructions),
       vendor: orderData.vendorId,
       ...deliveryTiming,
     });
@@ -1478,7 +1493,7 @@ export const calculateBill = async (req, res) => {
 export const getMyOrders = async (req, res) => {
   try {
     const orders = await Order.find({ user: req.user._id })
-      .select('orderId status items totalAmount createdAt paymentStatus cancellation paymentMethod deliveryOTP returnRequest branchId vendor isImmediate deliverySlot deliveryWindowSnapshot deliveryFee immediateDeliveryFee baseDeliveryFee')
+      .select('orderId status items totalAmount createdAt paymentStatus cancellation paymentMethod deliveryOTP returnRequest branchId vendor isImmediate deliverySlot deliveryWindowSnapshot deliveryFee immediateDeliveryFee baseDeliveryFee deliveryInstructions')
       .populate('items.product', 'name images basePrice stock branchStocks lowStockThreshold')
       .populate('branchId', 'name')
       .populate('vendor', 'storeName')
@@ -1720,7 +1735,7 @@ export const getAllOrdersAdmin = async (req, res) => {
     // Run paginated results, total count, AND full-dataset aggregate stats in parallel
     const [orders, totalOrders, statsAgg] = await Promise.all([
       Order.find(query)
-        .select('orderId user posCustomer totalAmount status createdAt paymentMethod paymentStatus branchId vendor deliverySlot deliverySlotId deliveryWindowSnapshot isImmediate orderSource promoCode discountAmount freeGiftSnapshot items subTotal taxAmount deliveryFee immediateDeliveryFee baseDeliveryFee handlingFee')
+        .select('orderId user posCustomer totalAmount status createdAt paymentMethod paymentStatus branchId vendor deliverySlot deliverySlotId deliveryWindowSnapshot isImmediate orderSource promoCode discountAmount freeGiftSnapshot items subTotal taxAmount deliveryFee immediateDeliveryFee baseDeliveryFee handlingFee deliveryInstructions')
         .populate('user', 'name email phone')
         .populate('branchId', 'name')
         .populate('vendor', 'storeName')

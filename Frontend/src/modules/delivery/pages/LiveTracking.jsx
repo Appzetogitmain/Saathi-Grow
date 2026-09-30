@@ -9,7 +9,8 @@ import {
     MapPin,
     Star,
     ArrowRight,
-    Check
+    Check,
+    FileText
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, useDragControls } from 'framer-motion';
@@ -414,6 +415,30 @@ const LiveTracking = () => {
                                             <MapPin size={12} className="mt-0.5 flex-shrink-0 text-emerald-500" />
                                             <p className="text-[10px] font-bold leading-relaxed">{stop.order?.shippingAddress?.street}, {stop.order?.shippingAddress?.city}</p>
                                         </div>
+                                        {(stop.order?.deliveryInstructions?.chips?.length > 0 || stop.order?.deliveryInstructions?.customNote) && (
+                                            <div className="mb-3.5 p-3 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/40 rounded-xl">
+                                                <div className="flex items-center gap-1.5 mb-1.5">
+                                                    <FileText size={11} className="text-amber-600 dark:text-amber-400" />
+                                                    <span className="text-[9px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                                                        Delivery Instructions
+                                                    </span>
+                                                </div>
+                                                {stop.order.deliveryInstructions.chips?.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1 mb-1.5">
+                                                        {stop.order.deliveryInstructions.chips.map((chip, cIdx) => (
+                                                            <span key={cIdx} className="px-2 py-0.5 bg-white dark:bg-zinc-800 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-700/50 rounded-full text-[10px] font-bold">
+                                                                ✓ {chip}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {stop.order.deliveryInstructions.customNote && (
+                                                    <p className="text-[11px] text-amber-950 dark:text-amber-100 font-semibold bg-white/90 dark:bg-black/30 p-2 rounded-lg border border-amber-100 dark:border-white/5">
+                                                        "{stop.order.deliveryInstructions.customNote}"
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
                                         {isActive && run.status === 'in_progress' && (
                                             <div className="flex gap-2">
                                                 {isReturn ? (
