@@ -288,7 +288,14 @@ const ProductDetailsPage = () => {
     const selectedVariant = hasVariants ? product.variants[selectedVariantIndex] : null;
     const cartItemId = selectedVariant ? `${product.id}::${selectedVariant.value}` : (product?.id || id);
     const activePrice = selectedVariant?.price ?? product?.price ?? 0;
-    const activeMrp = Number(selectedVariant?.mrp ?? product?.mrp ?? product?.originalPrice ?? 0);
+    const isBaseVariant = !selectedVariant || 
+        Number(selectedVariant.price) === Number(product?.price) || 
+        (product?.weight && String(selectedVariant.value).trim().toLowerCase() === String(product.weight).trim().toLowerCase());
+    const activeMrp = Number(
+        (selectedVariant?.mrp && Number(selectedVariant.mrp) > 0)
+            ? selectedVariant.mrp
+            : (isBaseVariant ? (product?.mrp ?? product?.originalPrice ?? 0) : 0)
+    );
     const hasDiscount = activeMrp > activePrice;
     const activeSavings = hasDiscount ? (activeMrp - activePrice) : 0;
     const activeDiscountPercent = hasDiscount ? Math.round(((activeMrp - activePrice) / activeMrp) * 100) : 0;
