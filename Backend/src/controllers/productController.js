@@ -13,6 +13,7 @@ import { syncLocationAssignment } from './physicalLocationController.js';
 import PhysicalLocation from '../models/PhysicalLocation.js';
 import XLSX from 'xlsx';
 import { recordSearchLog } from '../services/searchLogService.js';
+import { rankSearchProducts } from '../services/productSearchService.js';
 
 /** Default product image (SG logo) when bulk upload has no image URL */
 const getDefaultProductImageUrl = () => {
@@ -693,6 +694,87 @@ export const getProducts = async (req, res) => {
   }
 };
 
+
+// @desc    Customer product search with related alternatives
+// @route   GET /api/admin/products/search
+export const searchCustomerProducts = async (req, res) => {
+  try {
+    const queryText = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 80) : '';
+    if (!queryText) return res.json({ products: [], total: 0, page: 1, pages: 0 });
+    const page = Math.max(1, Math.min(100, Number.parseInt(req.query.page, 10) || 1));
+    const limit = Math.max(1, Math.min(40, Number.parseInt(req.query.limit, 10) || 20));
+    const storeId = mongoose.isValidObjectId(req.query.storeId) ? req.query.storeId : null;
+    const storeType = req.query.storeType;
+
+    const inactiveVendors = await mongoose.model('Vendor').find({ status: { $ne: 'Active' } }).distinct('_id');
+    const activeBranches = await Branch.find({ isActive: true }).distinct('_id');
+    const scope = {
+      status: { $in: ['Active', 'Low Stock', 'Out of Stock'] },
+      vendor: { $nin: inactiveVendors },
+      $and: [{ $or: [
+        { vendor: { $exists: true, $ne: null } },
+        { 'branchStocks.branchId': { $in: activeBranches } }
+      ] }]
+    };
+    if (storeId && storeType === 'vendor') {
+      const vendor = await mongoose.model('Vendor').findById(storeId).select('status');
+      if (!vendor || vendor.status !== 'Active') return res.json({ products: [], total: 0, page, pages: 0 });
+      scope.vendor = new mongoose.Types.ObjectId(storeId);
+    } else if (storeId && storeType === 'branch') {
+      const branch = await Branch.findById(storeId).select('isActive');
+      if (!branch?.isActive) return res.json({ products: [], total: 0, page, pages: 0 });
+      // Match the regular catalog: branch products and vendor alternatives can be shown.
+    }
+
+    const tokens = [...new Set(queryText.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length > 1))].slice(0, 8);
+    if (!tokens.length) tokens.push(queryText.toLowerCase());
+    const patterns = tokens.map(token => new RegExp(escapeRegExp(token), 'i'));
+    const fields = ['name', 'brandName', 'category', 'subCategory', 'tags'];
+    const candidateMatch = { ...scope, $or: patterns.flatMap(pattern => fields.map(field => ({ [field]: pattern }))) };
+    const projection = 'name image gallery variants description basePrice mrp category subCategory tags status brandName unitType unitValue isVeg sku branchStocks vendor stock lowStockThreshold averageRating ratingCount displayOrder isAllBranches';
+    const exactName = new RegExp(`^${escapeRegExp(queryText)}$`, 'i');
+    const [exactProducts, broadProducts] = await Promise.all([
+      Product.find({ ...scope, name: exactName }).limit(100).select(projection).lean(),
+      Product.find(candidateMatch).sort({ createdAt: -1 }).limit(1200).select(projection).lean()
+    ]);
+    let candidates = [...new Map([...exactProducts, ...broadProducts].map(p => [String(p._id), p])).values()];
+    // If all words were misspelled, allow one-edit fuzzy matching on a bounded
+    // slice of the same public catalog instead of returning an immediate zero result.
+    if (!candidates.length && queryText.length >= 4) {
+      candidates = await Product.find(scope).sort({ createdAt: -1 }).limit(1200).select(projection).lean();
+    }
+    if (storeId && (storeType === 'branch' || storeType === 'vendor')) {
+      candidates = candidates.map(p => {
+        const branchStock = p.branchStocks?.find(s => String(s.branchId) === storeId);
+        const availableStock = storeType === 'vendor' ? (String(p.vendor) === storeId ? p.stock : 0)
+          : branchStock ? branchStock.stock : p.vendor ? p.stock : 0;
+        return { ...p, isDeliverable: availableStock > 0 };
+      });
+    }
+    const ranked = rankSearchProducts(candidates, queryText);
+    const total = ranked.length;
+    let products = ranked.slice((page - 1) * limit, page * limit);
+    products = await Product.populate(products, [
+      { path: 'branchStocks.branchId', select: 'name code logo phone email address' },
+      { path: 'vendor', select: 'storeName logo businessType phone email address' }
+    ]);
+    if (storeId && (storeType === 'branch' || storeType === 'vendor')) {
+      products = products.map(p => {
+        const branchStock = p.branchStocks?.find(s => String(s.branchId?._id || s.branchId) === storeId);
+        const vendorId = String(p.vendor?._id || p.vendor || '');
+        const inStore = storeType === 'vendor' ? vendorId === storeId : Boolean(branchStock || p.vendor || p.isAllBranches);
+        const availableStock = storeType === 'vendor' ? (vendorId === storeId ? p.stock : 0)
+          : branchStock ? branchStock.stock : p.vendor ? p.stock : 0;
+        return { ...p, inStore, availableStock, isDeliverable: inStore && availableStock > 0 };
+      });
+    }
+    if (page === 1) recordSearchLog(req, queryText, total, 'keyword').catch(() => {});
+    return res.json({ products, total, page, pages: Math.ceil(total / limit) });
+  } catch (error) {
+    console.error('[CUSTOMER-SEARCH]', error);
+    return res.status(500).json({ message: 'Search failed. Please try again.' });
+  }
+};
 
 // @desc    AI-Powered Product Search
 // @route   GET /api/admin/products/search/ai

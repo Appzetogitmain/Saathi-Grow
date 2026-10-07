@@ -12,6 +12,7 @@ import {
   getInventoryLogs,
   getAllInventoryLogs,
   searchProductsWithAI,
+  searchCustomerProducts,
   getUniqueBrands,
   getInventoryStats,
   bulkAdjustInventory,
@@ -30,6 +31,7 @@ const router = express.Router();
 
 // Static routes first (MUST BE ABOVE /:id)
 router.get('/brands', getUniqueBrands);
+router.get('/search', optionalProtect, optionalProtectStoreManager, searchCustomerProducts);
 router.get('/search/ai', optionalProtect, optionalProtectStoreManager, searchProductsWithAI);
 
 // Admin Only Static Routes

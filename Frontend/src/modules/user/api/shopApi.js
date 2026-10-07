@@ -114,12 +114,7 @@ export const fetchOfferProducts = async (id, params = {}) => {
   return data;
 };
 export const searchProducts = async (query = '', page = 1, storeParams = {}, signal = null) => {
-  const params = new URLSearchParams();
-  params.append('search', query);
-  params.append('page', page);
-  params.append('status', 'Active');
-  params.append('status', 'Low Stock');
-  params.append('status', 'Out of Stock');
+  const params = new URLSearchParams({ q: query, page });
   Object.entries(storeParams).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
       params.append(key, value);
@@ -128,7 +123,7 @@ export const searchProducts = async (query = '', page = 1, storeParams = {}, sig
   
   const token = localStorage.getItem('saathigro_token');
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await fetch(`${API_BASE_URL}/admin/products?${params.toString()}`, { signal, headers });
+  const response = await fetch(`${API_BASE_URL}/admin/products/search?${params.toString()}`, { signal, headers });
   const data = await response.json();
   if (!response.ok) throw new Error(data.message || 'Failed to search products');
   return data;

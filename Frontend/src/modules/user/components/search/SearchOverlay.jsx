@@ -98,13 +98,12 @@ const SearchOverlay = () => {
     useEffect(() => {
         const trimmedQuery = searchQuery.trim();
 
-        if (trimmedQuery.length < 3) {
-            if (!trimmedQuery) {
-                setFilteredProducts([]);
-                setIsLoading(false);
-                setIsAISearch(false);
-                lastSearchRef.current = { query: '', storeId: '__UNINITIALIZED__', type: 'regular' };
-            }
+        if (trimmedQuery.length < 2) {
+            setFilteredProducts([]);
+            setTotalResults(0);
+            setIsLoading(false);
+            setIsAISearch(false);
+            lastSearchRef.current = { query: '', storeId: '__UNINITIALIZED__', type: 'regular' };
             return;
         }
 
@@ -302,6 +301,22 @@ const SearchOverlay = () => {
                                         {isAISearch ? 'AI Discovery for' : 'Results for'} <span className="text-[#0c831f]">"{searchQuery}"</span>
                                     </h2>
                                     <span className="text-[10px] font-black bg-gray-50 dark:bg-white/5 px-3 py-1.5 rounded-full border border-gray-100 dark:border-white/5 uppercase tracking-widest">{totalResults} Products</span>
+                                </div>
+                            )}
+
+                            {!isLoading && !isAISearch && filteredProducts.length > 0 && (
+                                <div className="mb-8 rounded-2xl border border-gray-100 dark:border-white/10 overflow-hidden bg-white dark:bg-[#1c1c1c]">
+                                    <h3 className="px-4 py-3 text-sm font-bold text-gray-800 dark:text-gray-100 border-b border-gray-100 dark:border-white/10">Suggestions and alternatives</h3>
+                                    {filteredProducts.slice(0, 6).map((product) => {
+                                        const available = product.isDeliverable ?? (product.vendor ? product.stock > 0 : product.branchStocks?.some(stock => stock.stock > 0));
+                                        return (
+                                            <Link key={product._id} to={`/product/${product._id}`} onClick={handleClose} className="flex items-center gap-3 px-4 py-2.5 border-b last:border-b-0 border-gray-100 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5">
+                                                <img src={product.image || product.gallery?.[0] || logo} alt="" className="w-12 h-12 rounded-lg object-contain bg-gray-50 dark:bg-white/5" />
+                                                <span className="flex-1 min-w-0 text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{product.name}</span>
+                                                {!available && <span className="text-xs text-gray-500 whitespace-nowrap">Out of stock</span>}
+                                            </Link>
+                                        );
+                                    })}
                                 </div>
                             )}
 
