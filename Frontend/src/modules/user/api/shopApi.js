@@ -121,19 +121,32 @@ export const searchProducts = async (query = '', page = 1, storeParams = {}, sig
     }
   });
   
-  const token = localStorage.getItem('saathigro_token');
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await fetch(`${API_BASE_URL}/admin/products/search?${params.toString()}`, { signal, headers });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.message || 'Failed to search products');
-  return data;
+  try {
+    const response = await fetch(`${API_BASE_URL}/admin/products/search?${params.toString()}`, { signal });
+    if (response.ok) {
+      const data = await response.json();
+      if (data.products?.length || page > 1) return data;
+    }
+  } catch (error) {
+    if (error.name === 'AbortError' || signal?.aborted) throw error;
+  }
+
+  // The catalog endpoint remains a useful fallback when the relevance index has
+  // no candidates for a brand or the search service is temporarily unavailable.
+  const fallbackParams = new URLSearchParams({ search: query, page, status: 'Active,Low Stock,Out of Stock' });
+  Object.entries(storeParams).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') fallbackParams.append(key, value);
+  });
+  if (storeParams.storeId) fallbackParams.set('hardFilter', 'true');
+  const fallbackResponse = await fetch(`${API_BASE_URL}/admin/products?${fallbackParams.toString()}`, { signal });
+  const fallbackData = await fallbackResponse.json();
+  if (!fallbackResponse.ok) throw new Error(fallbackData.message || 'Failed to search products');
+  return fallbackData;
 };
 
 export const searchProductsWithAI = async (query = '', page = 1, storeParams = {}, signal = null) => {
   const params = new URLSearchParams({ q: query, page, isAI: 'true', ...storeParams }).toString();
-  const token = localStorage.getItem('saathigro_token');
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await fetch(`${API_BASE_URL}/admin/products/search/ai?${params}`, { signal, headers });
+  const response = await fetch(`${API_BASE_URL}/admin/products/search/ai?${params}`, { signal });
   const data = await response.json();
   if (!response.ok) throw new Error(data.message || 'Failed AI search');
   return data;

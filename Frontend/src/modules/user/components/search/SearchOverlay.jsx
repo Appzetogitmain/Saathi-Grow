@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 const VoiceSearchModal = lazy(() => import('./VoiceSearchModal'));
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, X, Search, Sparkles, Mic, Loader2 } from 'lucide-react';
 import { useSearch } from '../../context/SearchContext';
 import ProductCard from '../product/ProductCard';
@@ -16,7 +16,6 @@ const SearchOverlay = () => {
     const { searchQuery, setSearchQuery, isSearchOverlayOpen, setIsSearchOverlayOpen, startVoiceSearch, setStartVoiceSearch } = useSearch();
     const { isDarkMode } = useTheme();
     const { activeStore } = useStore();
-    const navigate = useNavigate();
     const location = useLocation();
     const [recentSearches, setRecentSearches] = useState(() => {
         const saved = localStorage.getItem('recentSearches');
@@ -25,14 +24,14 @@ const SearchOverlay = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isMoreLoading, setIsMoreLoading] = useState(false);
     const [showVoiceModal, setShowVoiceModal] = useState(false);
-    const [micError, setMicError] = useState(null);
     const [filteredProducts, setFilteredProducts] = useState([]);
+    const [searchError, setSearchError] = useState(false);
+    const [retryCount, setRetryCount] = useState(0);
     const [isAISearch, setIsAISearch] = useState(false);
 
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalResults, setTotalResults] = useState(0);
-    const [isFocused, setIsFocused] = useState(true);
 
     useEffect(() => {
         if (isSearchOverlayOpen && startVoiceSearch) {
@@ -48,10 +47,9 @@ const SearchOverlay = () => {
     const handleVoiceResult = (result) => {
         setSearchQuery(result);
         addToHistory(result);
-        setIsFocused(true);
     };
 
-    const lastSearchRef = useRef({ query: '', storeId: '__UNINITIALIZED__', type: 'regular' });
+    const lastSearchRef = useRef({ query: '', storeId: '__UNINITIALIZED__', storeType: null, type: 'regular' });
     const abortControllerRef = useRef(null);
     const storeSettledRef = useRef(false);
 
@@ -86,7 +84,7 @@ const SearchOverlay = () => {
             setTotalPages(data.pages || 1);
             setTotalResults(data.total || 0);
             addToHistory(query);
-            lastSearchRef.current = { query, storeId: activeStore?.id ?? null, type: 'ai' };
+            lastSearchRef.current = { query, storeId: activeStore?.id ?? null, storeType: activeStore?.type ?? null, type: 'ai' };
         } catch (err) {
             if (err.name !== 'AbortError') console.error('AI Search failed:', err);
         } finally {
@@ -102,51 +100,63 @@ const SearchOverlay = () => {
             setFilteredProducts([]);
             setTotalResults(0);
             setIsLoading(false);
+            setSearchError(false);
             setIsAISearch(false);
-            lastSearchRef.current = { query: '', storeId: '__UNINITIALIZED__', type: 'regular' };
+            lastSearchRef.current = { query: '', storeId: '__UNINITIALIZED__', storeType: null, type: 'regular' };
             return;
         }
 
         if (!storeSettledRef.current) return;
 
         const currentStoreId = activeStore?.id ?? null;
+        const currentStoreType = activeStore?.type ?? null;
         if (lastSearchRef.current.query === trimmedQuery && 
             lastSearchRef.current.storeId === currentStoreId && 
+            lastSearchRef.current.storeType === currentStoreType &&
             lastSearchRef.current.type === 'regular' && 
             !isAISearch) {
             return;
         }
 
+        setIsLoading(true);
+        setSearchError(false);
+        let requestController;
         const runSearch = async () => {
             if (abortControllerRef.current) abortControllerRef.current.abort();
-            abortControllerRef.current = new AbortController();
+            requestController = new AbortController();
+            abortControllerRef.current = requestController;
 
             setIsLoading(true);
             setIsAISearch(false);
+            setSearchError(false);
             setCurrentPage(1);
 
             try {
                 const storeParams = activeStore ? { storeId: activeStore.id, storeType: activeStore.type } : {};
-                const data = await searchProducts(trimmedQuery, 1, storeParams, abortControllerRef.current.signal);
+                const data = await searchProducts(trimmedQuery, 1, storeParams, requestController.signal);
 
+                if (requestController.signal.aborted) return;
                 setFilteredProducts(data.products || []);
                 setTotalPages(data.pages || 1);
                 setTotalResults(data.total || 0);
-                lastSearchRef.current = { query: trimmedQuery, storeId: currentStoreId, type: 'regular' };
+                lastSearchRef.current = { query: trimmedQuery, storeId: currentStoreId, storeType: currentStoreType, type: 'regular' };
             } catch (err) {
-                if (err.name !== 'AbortError') console.error('Search failed:', err);
-                setFilteredProducts([]);
+                if (err.name !== 'AbortError' && !requestController.signal.aborted) {
+                    console.error('Search failed:', err);
+                    setSearchError(true);
+                    setFilteredProducts([]);
+                }
             } finally {
-                setIsLoading(false);
+                if (!requestController.signal.aborted) setIsLoading(false);
             }
         };
 
         const timer = setTimeout(runSearch, 800);
         return () => {
             clearTimeout(timer);
-            if (abortControllerRef.current) abortControllerRef.current.abort();
+            if (requestController) requestController.abort();
         };
-    }, [searchQuery, activeStore?.id]);
+    }, [searchQuery, activeStore?.id, activeStore?.type, retryCount]);
 
     const handleLoadMore = async () => {
         if (currentPage >= totalPages || isMoreLoading) return;
@@ -232,7 +242,6 @@ const SearchOverlay = () => {
                                  placeholder='Search products...'
                                  value={searchQuery}
                                  onChange={(e) => setSearchQuery(e.target.value)}
-                                 onFocus={() => setIsFocused(true)}
                                  className="w-full pl-4 md:pl-12 pr-24 md:pr-32 py-2.5 md:py-3.5 bg-white md:bg-gray-50 dark:bg-[#1c1c1c] border border-gray-100 md:border-transparent focus:border-[#0c831f] rounded-xl text-[15px] font-medium text-gray-800 dark:text-gray-100 focus:outline-none transition-all placeholder:text-[13px] md:placeholder:text-[15px]"
                                 autoFocus
                             />
@@ -337,15 +346,15 @@ const SearchOverlay = () => {
                                     <div className="w-20 h-20 bg-white dark:bg-black rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-gray-100 dark:shadow-none">
                                         <Search size={32} className="text-gray-200" />
                                     </div>
-                                    <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-tight">No products found</h3>
-                                    <p className="text-sm text-gray-400 mt-1 mb-8">Try a different keyword or category</p>
+                                    <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-tight">{searchError ? 'Search is temporarily unavailable' : 'No products found'}</h3>
+                                    <p className="text-sm text-gray-400 mt-1 mb-8">{searchError ? 'Please try again in a moment.' : 'Try a different keyword or category'}</p>
                                     
                                     <button 
-                                        onClick={() => handleAISearch()}
+                                        onClick={() => searchError ? setRetryCount(count => count + 1) : handleAISearch()}
                                         className="flex items-center gap-3 bg-gradient-to-r from-blue-600 to-[#0c831f] text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-blue-100 dark:shadow-none hover:scale-105 active:scale-95 transition-all group"
                                     >
                                         <Sparkles size={18} className="group-hover:rotate-12 transition-transform" />
-                                        Use AI for related products
+                                        {searchError ? 'Try search again' : 'Use AI for related products'}
                                     </button>
                                 </div>
                             )}

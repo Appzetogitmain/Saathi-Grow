@@ -27,3 +27,15 @@ test('tolerates one typo and prefers available alternatives within the same rele
   const products = [product('Brand A Ghee', 'Brand A', 0), product('Brand B Ghee', 'Brand B')];
   assert.deepEqual(rankSearchProducts(products, 'gheee').map(p => p.name), ['Brand B Ghee', 'Brand A Ghee']);
 });
+
+test('a brand-only query returns products even when imported brand metadata is missing or inconsistent', () => {
+  const products = [
+    product('Bikaji Moong Dal 200G', 'Bikano'),
+    product('Bikaji Salted Peanuts 200G', 'Bikaji'),
+    product('Bikaji Aloo Bhujia', ''),
+    product('Bikano Matar Masala', 'Bikano')
+  ];
+  assert.deepEqual(rankSearchProducts(products, 'bikaji').map(p => p.name), [
+    'Bikaji Aloo Bhujia', 'Bikaji Moong Dal 200G', 'Bikaji Salted Peanuts 200G'
+  ]);
+});
