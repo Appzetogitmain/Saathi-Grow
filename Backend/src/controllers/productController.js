@@ -719,7 +719,8 @@ export const searchCustomerProducts = async (req, res) => {
     if (storeId && storeType === 'vendor') {
       const vendor = await mongoose.model('Vendor').findById(storeId).select('status');
       if (!vendor || vendor.status !== 'Active') return res.json({ products: [], total: 0, page, pages: 0 });
-      scope.vendor = new mongoose.Types.ObjectId(storeId);
+      // Keep the selected vendor for availability, not catalog eligibility.
+      // A vendor with no match must still show relevant products as alternatives.
     } else if (storeId && storeType === 'branch') {
       const branch = await Branch.findById(storeId).select('isActive');
       if (!branch?.isActive) return res.json({ products: [], total: 0, page, pages: 0 });

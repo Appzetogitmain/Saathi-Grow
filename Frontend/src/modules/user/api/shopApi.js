@@ -125,7 +125,7 @@ export const searchProducts = async (query = '', page = 1, storeParams = {}, sig
     const response = await fetch(`${API_BASE_URL}/admin/products/search?${params.toString()}`, { signal });
     if (response.ok) {
       const data = await response.json();
-      if (data.products?.length || page > 1) return data;
+      if (data.products?.length) return data;
     }
   } catch (error) {
     if (error.name === 'AbortError' || signal?.aborted) throw error;
@@ -137,7 +137,8 @@ export const searchProducts = async (query = '', page = 1, storeParams = {}, sig
   Object.entries(storeParams).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') fallbackParams.append(key, value);
   });
-  if (storeParams.storeId) fallbackParams.set('hardFilter', 'true');
+  // Search remains discoverable when the selected store does not carry the item.
+  // The product card uses store availability to prevent unavailable purchases.
   const fallbackResponse = await fetch(`${API_BASE_URL}/admin/products?${fallbackParams.toString()}`, { signal });
   const fallbackData = await fallbackResponse.json();
   if (!fallbackResponse.ok) throw new Error(fallbackData.message || 'Failed to search products');

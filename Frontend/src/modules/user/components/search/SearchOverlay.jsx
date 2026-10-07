@@ -49,13 +49,8 @@ const SearchOverlay = () => {
         addToHistory(result);
     };
 
-    const lastSearchRef = useRef({ query: '', storeId: '__UNINITIALIZED__', storeType: null, type: 'regular' });
     const abortControllerRef = useRef(null);
-    const storeSettledRef = useRef(false);
-
-    useEffect(() => {
-        storeSettledRef.current = true;
-    }, [activeStore]);
+    const debounceTimerRef = useRef(null);
 
     useEffect(() => {
         if (isSearchOverlayOpen) {
@@ -68,7 +63,8 @@ const SearchOverlay = () => {
     const handleAISearch = async (forcedQuery) => {
         const query = forcedQuery || searchQuery;
         if (!query || query.trim().length < 2) return;
-        
+
+        clearTimeout(debounceTimerRef.current);
         if (abortControllerRef.current) abortControllerRef.current.abort();
         abortControllerRef.current = new AbortController();
 
@@ -84,7 +80,6 @@ const SearchOverlay = () => {
             setTotalPages(data.pages || 1);
             setTotalResults(data.total || 0);
             addToHistory(query);
-            lastSearchRef.current = { query, storeId: activeStore?.id ?? null, storeType: activeStore?.type ?? null, type: 'ai' };
         } catch (err) {
             if (err.name !== 'AbortError') console.error('AI Search failed:', err);
         } finally {
@@ -94,6 +89,7 @@ const SearchOverlay = () => {
 
     // Standard Search Debouncer
     useEffect(() => {
+        if (!isSearchOverlayOpen) return;
         const trimmedQuery = searchQuery.trim();
 
         if (trimmedQuery.length < 2) {
@@ -102,19 +98,6 @@ const SearchOverlay = () => {
             setIsLoading(false);
             setSearchError(false);
             setIsAISearch(false);
-            lastSearchRef.current = { query: '', storeId: '__UNINITIALIZED__', storeType: null, type: 'regular' };
-            return;
-        }
-
-        if (!storeSettledRef.current) return;
-
-        const currentStoreId = activeStore?.id ?? null;
-        const currentStoreType = activeStore?.type ?? null;
-        if (lastSearchRef.current.query === trimmedQuery && 
-            lastSearchRef.current.storeId === currentStoreId && 
-            lastSearchRef.current.storeType === currentStoreType &&
-            lastSearchRef.current.type === 'regular' && 
-            !isAISearch) {
             return;
         }
 
@@ -139,7 +122,6 @@ const SearchOverlay = () => {
                 setFilteredProducts(data.products || []);
                 setTotalPages(data.pages || 1);
                 setTotalResults(data.total || 0);
-                lastSearchRef.current = { query: trimmedQuery, storeId: currentStoreId, storeType: currentStoreType, type: 'regular' };
             } catch (err) {
                 if (err.name !== 'AbortError' && !requestController.signal.aborted) {
                     console.error('Search failed:', err);
@@ -151,12 +133,12 @@ const SearchOverlay = () => {
             }
         };
 
-        const timer = setTimeout(runSearch, 800);
+        debounceTimerRef.current = setTimeout(runSearch, 800);
         return () => {
-            clearTimeout(timer);
+            clearTimeout(debounceTimerRef.current);
             if (requestController) requestController.abort();
         };
-    }, [searchQuery, activeStore?.id, activeStore?.type, retryCount]);
+    }, [isSearchOverlayOpen, searchQuery, activeStore?.id, activeStore?.type, retryCount]);
 
     const handleLoadMore = async () => {
         if (currentPage >= totalPages || isMoreLoading) return;
