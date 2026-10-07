@@ -97,6 +97,7 @@ const FirebaseNotificationHandler = ({ token, role, isApp = false, showToast = f
       
       const title = payload.notification?.title || payload.data?.title || 'New Notification';
       const body = payload.notification?.body || payload.data?.body || '';
+      const promotionalImage = payload.notification?.image || payload.notification?.imageUrl || payload.data?.imageUrl;
 
       // Trigger native notification in foreground if permission is granted (uses ServiceWorker on mobile)
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -108,6 +109,7 @@ const FirebaseNotificationHandler = ({ token, role, isApp = false, showToast = f
                 body: body,
                 icon: '/assets/logo_fav.png',
                 badge: '/assets/logo_fav.png',
+                ...(promotionalImage ? { image: promotionalImage } : {}),
                 tag: payload.data?.runId || payload.data?.orderId || undefined,
                 data: {
                   ...(payload.data || {}),
@@ -120,6 +122,7 @@ const FirebaseNotificationHandler = ({ token, role, isApp = false, showToast = f
               body: body,
               icon: '/assets/logo_fav.png',
               badge: '/assets/logo_fav.png',
+              ...(promotionalImage ? { image: promotionalImage } : {}),
               tag: payload.data?.runId || payload.data?.orderId || undefined,
               requireInteraction: ['assignment', 'run_assignment', 'return_batch'].includes(payload.data?.type)
             });
@@ -144,7 +147,7 @@ const FirebaseNotificationHandler = ({ token, role, isApp = false, showToast = f
         Swal.fire({
           title: title,
           text: body,
-          icon: icon,
+          ...(promotionalImage ? { imageUrl: promotionalImage, imageAlt: title, imageWidth: '100%' } : { icon }),
           showCancelButton: hasSpecificTarget,
           cancelButtonText: 'Dismiss',
           confirmButtonText: hasSpecificTarget ? 'View' : 'Got it!',

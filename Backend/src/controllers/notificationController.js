@@ -4,6 +4,7 @@ import Vendor from '../models/Vendor.js';
 import DeliveryPartner from '../models/DeliveryPartner.js';
 import Notification from '../models/Notification.js';
 import { sendPushNotification, notifyAllUsers, notifyAdmins, notifyUsers } from '../services/notificationService.js';
+import { uploadBufferToCloudinary } from '../config/cloudinary.js';
 
 export const updateFCMToken = async (req, res) => {
   try {
@@ -206,11 +207,25 @@ export const adminSendNotification = async (req, res) => {
       clickActionType,
       productId,
       categorySlug,
-      customLink
+      customLink,
+      imageUrl
     } = req.body;
 
     if (!title || !body) {
       return res.status(400).json({ success: false, message: 'Title and body are required' });
+    }
+
+    let promotionalImageUrl = typeof imageUrl === 'string' ? imageUrl.trim() : '';
+    if (promotionalImageUrl && !/^https:\/\/[^\s]+$/i.test(promotionalImageUrl)) {
+      return res.status(400).json({ success: false, message: 'Image URL must be a public HTTPS URL' });
+    }
+    if (req.file) {
+      const uploaded = await uploadBufferToCloudinary({
+        buffer: req.file.buffer,
+        folder: 'saathigro/notification-images',
+        transformation: [{ width: 1200, height: 800, crop: 'limit', quality: 'auto' }]
+      });
+      promotionalImageUrl = uploaded.secure_url;
     }
 
     // Standardize recipient model for Admin-based roles (Staff, Store Manager)
@@ -226,6 +241,7 @@ export const adminSendNotification = async (req, res) => {
       entityId: '',
       route: '/'
     };
+    if (promotionalImageUrl) pushData.imageUrl = promotionalImageUrl;
 
     if (clickActionType === 'product' && productId) {
       pushData.productId = String(productId);

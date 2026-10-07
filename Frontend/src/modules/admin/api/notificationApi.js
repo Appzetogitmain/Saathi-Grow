@@ -1,13 +1,14 @@
 import { API_BASE_URL } from '../../../config/apiConfig';
 
 export const sendNotification = async (token, data) => {
+  const form = new FormData();
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') form.append(key === 'imageFile' ? 'image' : key, value);
+  });
   const response = await fetch(`${API_BASE_URL}/notifications/admin/send`, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(data)
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: form
   });
   const resData = await response.json();
   if (!response.ok) throw new Error(resData.message || 'Failed to send notification');

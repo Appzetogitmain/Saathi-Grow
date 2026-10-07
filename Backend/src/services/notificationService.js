@@ -87,8 +87,11 @@ export const sendPushNotification = async (recipientId, recipientModel, notifica
       return false;
     }
 
+    const promotionalImageUrl = notification.imageUrl || data.imageUrl || '';
+    const notificationData = promotionalImageUrl ? { ...data, imageUrl: promotionalImageUrl } : data;
+
     // Deduplication check
-    const cacheKey = `${recipientId}_${notification.title}_${notification.body}`;
+    const cacheKey = `${recipientId}_${notification.title}_${notification.body}_${promotionalImageUrl}`;
     if (sentCache.has(cacheKey)) {
       console.log(`Notification already sent to ${recipientId} recently. Skipping.`);
       return true;
@@ -114,7 +117,7 @@ export const sendPushNotification = async (recipientId, recipientModel, notifica
           recipientModel: recipientModel === 'Admin' || recipientModel === 'Branch' ? 'Staff' : recipientModel,
           title: notification.title,
           body: notification.body,
-          data: data,
+          data: notificationData,
           type: data.type || 'general'
         });
       } catch (saveError) {
@@ -137,21 +140,21 @@ export const sendPushNotification = async (recipientId, recipientModel, notifica
 
     const messages = uniqueTokens.map(token => {
       console.log('Sending notification to token:', token);
-      const relRoute = resolveRelativeRoute(recipientModel, data);
-      const deepLink = buildDeepLink(recipientModel, data);
-      const entityType = data?.entityType || (data?.productId ? 'product' : (data?.categorySlug ? 'category' : (data?.customLink ? 'custom' : 'home')));
-      const entityId = data?.entityId || data?.productId || data?.categorySlug || '';
+      const relRoute = resolveRelativeRoute(recipientModel, notificationData);
+      const deepLink = buildDeepLink(recipientModel, notificationData);
+      const entityType = notificationData?.entityType || (notificationData?.productId ? 'product' : (notificationData?.categorySlug ? 'category' : (notificationData?.customLink ? 'custom' : 'home')));
+      const entityId = notificationData?.entityId || notificationData?.productId || notificationData?.categorySlug || '';
 
       const message = {
         token,
         notification: {
           title: notification.title,
           body: notification.body,
-          imageUrl: `${BASE_CLIENT_URL}/assets/logo_fav.png`,
+          ...(promotionalImageUrl ? { imageUrl: promotionalImageUrl } : {}),
         },
         data: {
           ...Object.fromEntries(
-            Object.entries(data).map(([k, v]) => [k, String(v)])
+            Object.entries(notificationData).map(([k, v]) => [k, String(v)])
           ),
           entityType: String(entityType),
           entityId: String(entityId),
@@ -174,6 +177,7 @@ export const sendPushNotification = async (recipientId, recipientModel, notifica
             body: notification.body,
             icon: `${BASE_CLIENT_URL}/assets/logo_fav.png`,
             badge: `${BASE_CLIENT_URL}/assets/logo_fav.png`,
+            ...(promotionalImageUrl ? { image: promotionalImageUrl } : {}),
             requireInteraction: true, // Keep notification until user clicks or dismisses it
             vibrate: [200, 100, 200, 100, 200, 100, 200],
           },
@@ -191,6 +195,7 @@ export const sendPushNotification = async (recipientId, recipientModel, notifica
             visibility: 'public',
             defaultSound: true,
             defaultVibrateTimings: true,
+            ...(promotionalImageUrl ? { imageUrl: promotionalImageUrl } : {}),
           },
         },
         // ✅ iOS config
@@ -202,8 +207,10 @@ export const sendPushNotification = async (recipientId, recipientModel, notifica
             aps: {
               sound: 'default',
               contentAvailable: true,
+              ...(promotionalImageUrl ? { mutableContent: true } : {}),
             },
           },
+          ...(promotionalImageUrl ? { fcmOptions: { imageUrl: promotionalImageUrl } } : {}),
         },
       };
       console.log('Payload:', JSON.stringify(message, null, 2));

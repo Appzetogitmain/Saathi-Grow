@@ -15,6 +15,10 @@ const PushNotifications = () => {
     const { adminUser } = useAdminAuth();
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
+    const [imageUrl, setImageUrl] = useState('');
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState('');
+    const [imageInputKey, setImageInputKey] = useState(0);
     const [targetType, setTargetType] = useState('broadcast');
     const [selectedGroup, setSelectedGroup] = useState('all');
     const [history, setHistory] = useState([]);
@@ -43,6 +47,17 @@ const PushNotifications = () => {
     const [searchLoading, setSearchLoading] = useState(false);
     const [searchResults, setSearchResults] = useState([]);
     const [selectedRecipient, setSelectedRecipient] = useState(null);
+
+    useEffect(() => () => {
+        if (imagePreview) URL.revokeObjectURL(imagePreview);
+    }, [imagePreview]);
+
+    const handleImageFile = (file) => {
+        setImageFile(file || null);
+        setImagePreview(file ? URL.createObjectURL(file) : '');
+        if (file) setImageUrl('');
+        if (!file) setImageInputKey(key => key + 1);
+    };
 
     const fetchHistory = useCallback(async (page = 1) => {
         if (!adminUser?.token) return;
@@ -163,6 +178,11 @@ const PushNotifications = () => {
             return;
         }
 
+        if (imageUrl.trim() && !/^https:\/\/[^\s]+$/i.test(imageUrl.trim())) {
+            toast.error('Use a public HTTPS image URL or upload an image');
+            return;
+        }
+
         try {
             setDispatching(true);
             const payload = {
@@ -176,6 +196,8 @@ const PushNotifications = () => {
                 productId: clickActionType === 'product' ? selectedProduct._id : undefined,
                 categorySlug: clickActionType === 'category' ? selectedCategory : undefined,
                 customLink: clickActionType === 'custom' ? customLink.trim() : undefined,
+                imageUrl: imageUrl.trim(),
+                imageFile,
             };
 
             const res = await sendNotification(adminUser.token, payload);
@@ -183,6 +205,9 @@ const PushNotifications = () => {
                 toast.success(t('push.dispatch_success'));
                 setTitle('');
                 setMessage('');
+                setImageUrl('');
+                setImageFile(null);
+                setImagePreview('');
                 setSelectedRecipient(null);
                 setSearchQuery('');
                 setSelectedProduct(null);
@@ -503,6 +528,27 @@ const PushNotifications = () => {
                                         className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:border-blue-500 text-xs font-bold text-slate-700 shadow-sm resize-none"
                                     />
                                 </div>
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Promotional image (optional)</label>
+                                    <input
+                                        type="url"
+                                        placeholder="https://example.com/promotion.jpg"
+                                        value={imageUrl}
+                                        onChange={(e) => { setImageUrl(e.target.value); if (imageFile) handleImageFile(null); }}
+                                        className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:border-blue-500 text-xs text-slate-700"
+                                    />
+                                    <input
+                                        type="file"
+                                        key={imageInputKey}
+                                        accept="image/jpeg,image/png,image/webp,image/avif"
+                                        onChange={(e) => handleImageFile(e.target.files?.[0])}
+                                        className="block w-full text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-bold file:text-blue-600"
+                                    />
+                                    {(imageFile || imageUrl) && (
+                                        <button type="button" onClick={() => { setImageUrl(''); handleImageFile(null); }} className="text-xs font-semibold text-blue-600 hover:underline">Remove image</button>
+                                    )}
+                                    <p className="text-[10px] text-slate-400">Upload an image or enter a public HTTPS URL. Leave both empty for a text-only notification.</p>
+                                </div>
                                 <button
                                     onClick={handleSend}
                                     disabled={dispatching}
@@ -519,7 +565,7 @@ const PushNotifications = () => {
                 {/* Preview Card */}
                 <div className="xl:col-span-4 space-y-6">
                     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 h-full flex flex-col items-center justify-center min-h-[300px]">
-                        <div className="bg-white rounded-2xl p-4 shadow-xl border border-slate-100 w-full max-w-[240px] animate-in slide-in-from-bottom duration-300">
+                        <div className="bg-white rounded-2xl p-4 shadow-xl border border-slate-100 w-full max-w-[360px] animate-in slide-in-from-bottom duration-300">
                             <div className="flex justify-between items-center mb-3">
                                 <div className="flex items-center gap-1.5">
                                     <div className="w-5 h-5 bg-blue-600 rounded flex items-center justify-center">
@@ -534,6 +580,9 @@ const PushNotifications = () => {
                                 <p className="text-[10px] font-bold text-slate-500 leading-relaxed overflow-hidden line-clamp-3 opacity-80">
                                     {message || t('push.preview_instruction')}
                                 </p>
+                                {(imagePreview || imageUrl.trim()) && (
+                                    <img src={imagePreview || imageUrl.trim()} alt="Promotional preview" className="mt-3 w-full max-h-56 rounded-xl object-contain bg-slate-50" />
+                                )}
                                 {/* Destination Indicator Badge */}
                                 <div className="pt-2 mt-2 border-t border-slate-100 flex items-center gap-1.5 text-[9px] font-bold text-blue-600">
                                     <span>🎯</span>
@@ -620,6 +669,7 @@ const PushNotifications = () => {
                                         <td className="px-6 py-5">
                                             <div className="font-bold text-slate-800 text-xs uppercase tracking-tight">{n.title}</div>
                                             <div className="text-[11px] text-slate-400 font-bold line-clamp-1">{n.body}</div>
+                                            {n.data?.imageUrl && <img src={n.data.imageUrl} alt="" className="mt-2 w-24 h-14 rounded-lg object-cover" />}
                                             {n.data && (n.data.productId || n.data.categorySlug || n.data.customLink) && (
                                                 <div className="mt-1 inline-flex items-center gap-1 text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
                                                     <span>🎯</span>
@@ -644,7 +694,7 @@ const PushNotifications = () => {
                                         </td>
                                         <td className="px-6 py-5 text-right">
                                             <div className="flex justify-end gap-1.5">
-                                                <button onClick={() => { setTitle(n.title); setMessage(n.body); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Reuse"><RefreshCw size={16} /></button>
+                                                <button onClick={() => { setTitle(n.title); setMessage(n.body); setImageUrl(n.data?.imageUrl || ''); handleImageFile(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Reuse"><RefreshCw size={16} /></button>
                                                 <button onClick={() => handleDelete(n._id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg" title="Delete"><Trash2 size={16} /></button>
                                             </div>
                                         </td>

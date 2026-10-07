@@ -157,6 +157,7 @@ messaging.onBackgroundMessage((payload) => {
 
   const origin = self.location.origin;
   const defaultIcon = `${origin}/assets/logo_fav.png`;
+  const promotionalImage = payload.notification?.image || payload.notification?.imageUrl || payload.data?.imageUrl;
   const route = payload.data?.route || (payload.data?.productId ? `/product/${payload.data.productId}` : (payload.data?.categorySlug ? `/category/${payload.data.categorySlug}` : ''));
   const deepLink = payload.fcmOptions?.link || payload.data?.link || payload.data?.url || (route ? `${origin}${route.startsWith('/') ? '' : '/'}${route}` : '');
 
@@ -164,6 +165,7 @@ messaging.onBackgroundMessage((payload) => {
     body: payload.notification?.body || payload.data?.body || '',
     icon: payload.notification?.icon || payload.data?.icon || defaultIcon,
     badge: payload.notification?.badge || payload.data?.badge || defaultIcon,
+    ...(promotionalImage ? { image: promotionalImage } : {}),
     vibrate: [200, 100, 200],
     data: {
       ...payload.data,

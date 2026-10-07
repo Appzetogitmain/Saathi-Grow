@@ -160,6 +160,9 @@ const NotificationsPage = () => {
                                             <p className={`text-sm leading-relaxed ${item.isRead ? 'text-slate-500' : 'text-slate-600 dark:text-slate-400'}`}>
                                                 {item.body}
                                             </p>
+                                            {item.data?.imageUrl && (
+                                                <img src={item.data.imageUrl} alt="" className="mt-2 w-full max-h-64 rounded-xl object-contain bg-slate-50 dark:bg-slate-800" />
+                                            )}
 
                                             {/* Type badge */}
                                             {(item.type === 'resolution' || item.type === 'ticket_closed') && (
