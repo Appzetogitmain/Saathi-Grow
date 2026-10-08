@@ -17,8 +17,9 @@ const FirebaseNotificationHandler = ({ token, role, isApp = false, showToast = f
   const navigate = useNavigate();
 
   const resolveNotificationLink = (payloadData = {}) => {
+    const productId = payloadData?.productId || (payloadData?.entityType === 'product' ? payloadData?.entityId : null);
+    if (productId) return `/product/${productId}`;
     if (payloadData?.route) return payloadData.route;
-    if (payloadData?.productId) return `/product/${payloadData.productId}`;
     if (payloadData?.categorySlug) return `/category/${payloadData.categorySlug}`;
     if (payloadData?.customLink) return payloadData.customLink;
     if (payloadData?.link) return payloadData.link;

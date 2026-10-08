@@ -134,10 +134,17 @@ const NotificationsPage = () => {
                         <div className="flex flex-col gap-0 md:gap-3">
                             {notifications.map((item) => {
                                 const style = getNotificationStyle(item.type);
+                                const productId = item.data?.productId || (item.data?.entityType === 'product' ? item.data?.entityId : null);
+                                const target = productId ? `/product/${productId}` :
+                                    (typeof item.data?.route === 'string' && item.data.route.startsWith('/') ? item.data.route : null);
                                 return (
                                     <div
                                         key={item._id}
-                                        className={`w-full py-4 px-4 flex items-start gap-4 transition-all border-b border-slate-100 dark:border-white/5 md:border md:rounded-2xl md:shadow-sm ${item.isRead ? 'bg-transparent opacity-75' : 'bg-white dark:bg-slate-900'}`}
+                                        onClick={target ? () => navigate(target) : undefined}
+                                        role={target ? 'link' : undefined}
+                                        tabIndex={target ? 0 : undefined}
+                                        onKeyDown={target ? (event) => { if (event.key === 'Enter') navigate(target); } : undefined}
+                                        className={`w-full py-4 px-4 flex items-start gap-4 transition-all border-b border-slate-100 dark:border-white/5 md:border md:rounded-2xl md:shadow-sm ${target ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800' : ''} ${item.isRead ? 'bg-transparent opacity-75' : 'bg-white dark:bg-slate-900'}`}
                                     >
                                         {/* Icon */}
                                         <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm border ${item.isRead ? 'bg-slate-50 border-slate-100 text-slate-400' : style.bg}`}>

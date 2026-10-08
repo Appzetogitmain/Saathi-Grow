@@ -68,12 +68,13 @@ function SWNavigationListener() {
             let targetRoute = null;
 
             if (data.type === 'NOTIFICATION_CLICK_NAVIGATE') {
-                targetRoute = data.route || data.url;
+                const productId = data.productId || (data.entityType === 'product' ? data.entityId : null);
+                targetRoute = productId ? `/product/${productId}` : (data.route || data.url);
             } else if (data.messageType === 'notification-clicked' || data.isFirebaseMessaging) {
                 const fcmData = data.data || {};
                 const fcmOptions = data.fcmOptions || {};
-                targetRoute = fcmData.route || fcmOptions.link || fcmData.link || fcmData.url || fcmData.click_action;
-                if (!targetRoute && fcmData.productId) targetRoute = `/product/${fcmData.productId}`;
+                const productId = fcmData.productId || (fcmData.entityType === 'product' ? fcmData.entityId : null);
+                targetRoute = productId ? `/product/${productId}` : (fcmData.route || fcmOptions.link || fcmData.link || fcmData.url || fcmData.click_action);
                 if (!targetRoute && fcmData.categorySlug) targetRoute = `/category/${fcmData.categorySlug}`;
                 if (!targetRoute && fcmData.orderId) targetRoute = `/orders/${fcmData.orderId}`;
                 if (!targetRoute && fcmData.customLink) targetRoute = fcmData.customLink;

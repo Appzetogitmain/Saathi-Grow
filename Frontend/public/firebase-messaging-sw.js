@@ -9,16 +9,18 @@ self.addEventListener('notificationclick', (event) => {
 
   const rawData = event.notification?.data || {};
   const fcmMsg = rawData.FCM_MSG || {};
-  const fcmData = fcmMsg.data || {};
+  const fcmData = { ...(rawData.data || {}), ...(fcmMsg.data || {}) };
   const fcmOptions = fcmMsg.fcmOptions || fcmMsg.fcm_options || {};
   const fcmNotif = fcmMsg.notification || {};
   const origin = self.location.origin;
 
-  // 1. Prioritize canonical relative route if present
-  let route = rawData.route || fcmData.route || '';
+  // A product target wins over a stale home route or generic click URL.
+  const productId = rawData.productId || fcmData.productId ||
+    (rawData.entityType === 'product' ? rawData.entityId : '') ||
+    (fcmData.entityType === 'product' ? fcmData.entityId : '');
+  let route = productId ? `/product/${productId}` : (rawData.route || fcmData.route || '');
 
-  // 2. Backward compatibility with entity keys
-  const productId = rawData.productId || fcmData.productId;
+  // Backward compatibility with other entity keys
   const categorySlug = rawData.categorySlug || fcmData.categorySlug;
   const orderId = rawData.orderId || fcmData.orderId;
   const customLink = rawData.customLink || fcmData.customLink;
@@ -102,10 +104,18 @@ self.addEventListener('notificationclick', (event) => {
     console.log("[SW NOTIFICATION CLICK] existing client:", existingClient?.url);
 
     if (existingClient) {
-      console.log("[SW] EXISTING CLIENT branch taken - posting message & focusing");
-      // Post notification click message to client and focus tab without hard reloading
+      // Navigate the tab directly; messages can be missed while the SPA is mounting.
+      if (targetUrl.startsWith(`${origin}/`) && existingClient.navigate) {
+        try {
+          const navigatedClient = await existingClient.navigate(targetUrl);
+          return (navigatedClient || existingClient).focus();
+        } catch (error) {
+          console.warn('[SW] Direct notification navigation failed:', error);
+        }
+      }
       existingClient.postMessage({
         type: 'NOTIFICATION_CLICK_NAVIGATE',
+        productId,
         route: route,
         url: targetUrl
       });
@@ -158,7 +168,8 @@ messaging.onBackgroundMessage((payload) => {
   const origin = self.location.origin;
   const defaultIcon = `${origin}/assets/logo_fav.png`;
   const promotionalImage = payload.notification?.image || payload.notification?.imageUrl || payload.data?.imageUrl;
-  const route = payload.data?.route || (payload.data?.productId ? `/product/${payload.data.productId}` : (payload.data?.categorySlug ? `/category/${payload.data.categorySlug}` : ''));
+  const productId = payload.data?.productId || (payload.data?.entityType === 'product' ? payload.data?.entityId : '');
+  const route = productId ? `/product/${productId}` : (payload.data?.route || (payload.data?.categorySlug ? `/category/${payload.data.categorySlug}` : ''));
   const deepLink = payload.fcmOptions?.link || payload.data?.link || payload.data?.url || (route ? `${origin}${route.startsWith('/') ? '' : '/'}${route}` : '');
 
   const options = {

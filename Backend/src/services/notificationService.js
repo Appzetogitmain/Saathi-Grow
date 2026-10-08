@@ -21,21 +21,19 @@ const getBaseClientUrl = () => {
 const BASE_CLIENT_URL = getBaseClientUrl();
 
 export const resolveRelativeRoute = (recipientModel, data = {}) => {
+  const productId = data?.productId || (data?.entityType === 'product' ? data?.entityId : null);
+  if (productId) return `/product/${productId}`;
+
   if (data?.route && typeof data.route === 'string' && data.route.trim() !== '') {
     const r = data.route.trim();
     if (r.startsWith('http://') || r.startsWith('https://')) return r;
     return r.startsWith('/') ? r : `/${r}`;
   }
 
-  const productId = data?.productId;
   const categorySlug = data?.categorySlug;
   const customLink = data?.customLink || data?.link || data?.url;
   const orderId = data?.orderId;
   const ticketId = data?.ticketId;
-
-  if (productId) {
-    return `/product/${productId}`;
-  }
 
   if (categorySlug) {
     return `/category/${categorySlug}`;
