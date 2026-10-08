@@ -37,6 +37,7 @@ const allowedOrigins = [
   'https://saathi-grow-frontend.vercel.app',
   'https://saathi-grow.vercel.app',
   'https://saathigro.in',
+  'https://www.saathigro.in',
   'https://saathi-grow-admin.vercel.app',
   'https://saathi-grow-vendor.vercel.app',
   'https://saathi-grow-8oyg.vercel.app',
@@ -55,6 +56,9 @@ const isAllowed = (origin) => {
 
     // Allow all localhost variants
     if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
+
+    // Allow saathigro.in and any subdomain (*.saathigro.in)
+    if (hostname === 'saathigro.in' || hostname.endsWith('.saathigro.in')) return true;
 
     // Allow any vercel.app subdomain
     if (hostname.endsWith('.vercel.app')) return true;
