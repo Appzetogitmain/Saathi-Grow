@@ -24,6 +24,8 @@ import {
 import { protectAdmin, restrictTo, requirePermission, optionalProtectAdmin, protectStoreManager, optionalProtectStoreManager, optionalProtect } from '../middleware/authMiddleware.js';
 import { upload, productImageUpload } from '../config/cloudinary.js';
 import multer from 'multer';
+import { getBackInStockSubscription, subscribeBackInStock, unsubscribeBackInStock } from '../controllers/backInStockController.js';
+import { protect } from '../middleware/authMiddleware.js';
 
 const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -33,6 +35,9 @@ const router = express.Router();
 router.get('/brands', getUniqueBrands);
 router.get('/search', optionalProtect, optionalProtectStoreManager, searchCustomerProducts);
 router.get('/search/ai', optionalProtect, optionalProtectStoreManager, searchProductsWithAI);
+router.get('/:id/stock-alert', protect, getBackInStockSubscription);
+router.post('/:id/stock-alert', protect, subscribeBackInStock);
+router.delete('/:id/stock-alert', protect, unsubscribeBackInStock);
 
 // Admin Only Static Routes
 router.get('/inventory/stats', protectAdmin, requirePermission('VIEW_PRODUCTS'), getInventoryStats);

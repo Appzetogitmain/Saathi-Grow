@@ -21,6 +21,7 @@ const notificationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Admin'
   },
+  sourceKey: String,
   title: {
     type: String,
     required: true
@@ -44,6 +45,8 @@ const notificationSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+notificationSchema.index({ sourceKey: 1 }, { unique: true, partialFilterExpression: { sourceKey: { $type: 'string' } } });
 
 const Notification = mongoose.model('Notification', notificationSchema);
 export default Notification;

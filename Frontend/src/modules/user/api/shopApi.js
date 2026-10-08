@@ -169,6 +169,18 @@ export const getNearbyStores = async (lat, lng, radius) => {
   return data;
 };
 
+export const stockAlertRequest = async (productId, scope, token, method = 'GET') => {
+  const query = new URLSearchParams(scope).toString();
+  const response = await fetch(`${API_BASE_URL}/admin/products/${productId}/stock-alert${method === 'GET' ? `?${query}` : ''}`, {
+    method,
+    headers: { Authorization: `Bearer ${token}`, ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}) },
+    ...(method === 'GET' ? {} : { body: JSON.stringify(scope) })
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Could not update stock alert');
+  return data;
+};
+
 export const logDemandRequest = async (payload, token = null) => {
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;

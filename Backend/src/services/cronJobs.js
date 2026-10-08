@@ -2,11 +2,15 @@ import cron from 'node-cron';
 import Complaint from '../models/Complaint.js';
 import OfferDeal from '../models/OfferDeal.js';
 import { notifyAdmins, sendPushNotification, notifyByBranchAndPermission } from './notificationService.js';
+import { sendBackInStockNotifications } from './backInStockService.js';
 
 /**
  * Initialize all cron jobs
  */
 export const initCronJobs = () => {
+  cron.schedule('* * * * *', () => sendBackInStockNotifications().catch(error => {
+    console.error('[CRON-ERROR] Back-in-stock check failed:', error);
+  }));
   // 1. Offer Expiration Monitor (Run every hour)
   cron.schedule('0 * * * *', async () => {
     console.log('[CRON] Checking for expired offers...');

@@ -8,10 +8,12 @@ import { useTheme } from '../../context/ThemeContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useStore } from '../../context/StoreContext';
 import FadeImage from '../common/FadeImage';
+import { stockAlertRequest } from '../../api/shopApi';
+import { toast } from 'react-toastify';
 
 const ProductCard = memo(({ product, isCompact = false, customTheme, imgPadding, wishlistPosition = "top-2 right-2", isLowestPrice = false, isValentine = false, isSaathiSignature = false, isLargeButton = false }) => {
   const { cart, addToCart, updateQuantity } = useCart();
-  const { user, protectAction } = useAuth();
+  const { user, token, protectAction } = useAuth();
   const navigate = useNavigate();
   const { isDarkMode } = useTheme();
   const { toggleWishlist, isInWishlist } = useWishlist();
@@ -24,6 +26,8 @@ const ProductCard = memo(({ product, isCompact = false, customTheme, imgPadding,
     [product.variants]
   );
   const [showVariantModal, setShowVariantModal] = useState(false);
+  const [alertSubscribed, setAlertSubscribed] = useState(false);
+  const [alertBusy, setAlertBusy] = useState(false);
 
   const cartItem = cart.find(item => item.id === productId);
   const quantity = cartItem ? cartItem.quantity : 0;
@@ -71,6 +75,28 @@ const ProductCard = memo(({ product, isCompact = false, customTheme, imgPadding,
   
   const isOutOfStock = availableStock <= 0;
   const isBtnDisabled = !isDeliverable || isStoreOutOfRange || isStoreInactive || isOutOfStock;
+  const soldByActiveStore = productVendorId
+    ? activeStore?.type === 'vendor' && productVendorId === String(activeStore.id)
+    : activeStore?.type === 'branch' && product.branchStocks?.some(bs => String(bs.branchId?._id || bs.branchId) === String(activeStore.id));
+  const canNotify = isOutOfStock && soldByActiveStore && !isStoreOutOfRange && !isStoreInactive;
+
+  const handleStockAlert = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    protectAction(async () => {
+      if (alertBusy || alertSubscribed) return;
+      setAlertBusy(true);
+      try {
+        await stockAlertRequest(productId, { storeId: activeStore.id, storeType: activeStore.type }, token, 'POST');
+        setAlertSubscribed(true);
+        toast.success("We'll notify you when this product is back in stock.");
+      } catch (error) {
+        toast.error(error.message);
+      } finally {
+        setAlertBusy(false);
+      }
+    });
+  };
 
   const handleAddToCart = (e) => {
     if (isBtnDisabled) return;
@@ -235,7 +261,15 @@ const ProductCard = memo(({ product, isCompact = false, customTheme, imgPadding,
             <span className="text-[14px] sm:text-[19px] font-bold text-gray-900 dark:text-white tracking-tighter leading-tight">₹{product.price}</span>
           </div>
 
-          {!hasVariants && quantity > 0 ? (
+          {canNotify ? (
+            <button
+              onClick={handleStockAlert}
+              disabled={alertBusy || alertSubscribed}
+              className="px-2 py-1 border border-[#0c831f] text-[#0c831f] rounded-full text-[10px] sm:text-xs font-bold disabled:opacity-60"
+            >
+              {alertSubscribed ? 'Alert On' : 'Notify Me'}
+            </button>
+          ) : !hasVariants && quantity > 0 ? (
             <div
               className={`flex items-center text-white !rounded-full shadow-lg ${(isLargeButton || isLowestPrice || isValentine || isSaathiSignature) ? ((isLowestPrice || isValentine || isSaathiSignature) ? 'h-[24px] sm:h-[30px] min-w-[65px] sm:min-w-[70px]' : 'h-[28px] sm:h-[36px] min-w-[75px] sm:min-w-[85px]') : (isCompact ? 'h-[21px] sm:h-[30px] min-w-[50px] sm:min-w-[70px]' : 'h-[25px] sm:h-[36px] min-w-[60px] sm:min-w-[85px]')} border quantity-selector ${isBtnDisabled ? 'cursor-not-allowed bg-gray-400' : ''}`}
               style={{

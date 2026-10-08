@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { fetchProductById, fetchProducts, logDemandRequest, fetchProductReviews, submitProductReview } from '../../api/shopApi';
+import { fetchProductById, fetchProducts, logDemandRequest, fetchProductReviews, submitProductReview, stockAlertRequest } from '../../api/shopApi';
 import { useCart } from '../../context/CartContext';
 import { Minus, Plus, ChevronRight, ChevronLeft, Star, ShoppingCart, Sparkles, TrendingUp, AlertCircle, Bell, MapPin, Share2 } from 'lucide-react';
 import { ProductDetailSkeleton } from '../../components/common/Skeleton';
@@ -25,6 +25,8 @@ const ProductDetailsPage = () => {
     const [error, setError] = useState(false);
     const [isSubmittingDemand, setIsSubmittingDemand] = useState(false);
     const [demandLogged, setDemandLogged] = useState(false);
+    const [stockAlertSubscribed, setStockAlertSubscribed] = useState(false);
+    const [stockAlertBusy, setStockAlertBusy] = useState(false);
     const [reviews, setReviews] = useState([]);
     const [loadingReviews, setLoadingReviews] = useState(false);
     const [reviewsPagination, setReviewsPagination] = useState({ total: 0, page: 1, pages: 1 });
@@ -36,6 +38,34 @@ const ProductDetailsPage = () => {
     const [isSubmittingReview, setIsSubmittingReview] = useState(false);
     const [hasUserReviewed, setHasUserReviewed] = useState(false);
     const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
+
+    const alertVariantValue = product?.variants?.[selectedVariantIndex]?.value || '';
+    useEffect(() => {
+        if (!token || !product?.id || !activeStore?.id || !product.inStore) {
+            setStockAlertSubscribed(false);
+            return;
+        }
+        let cancelled = false;
+        stockAlertRequest(product.id, { storeId: activeStore.id, storeType: activeStore.type, variantValue: alertVariantValue }, token)
+            .then(data => { if (!cancelled) setStockAlertSubscribed(data.subscribed); })
+            .catch(() => { if (!cancelled) setStockAlertSubscribed(false); });
+        return () => { cancelled = true; };
+    }, [token, product?.id, product?.inStore, activeStore?.id, activeStore?.type, alertVariantValue]);
+
+    const handleStockAlert = () => protectAction(async () => {
+        if (stockAlertBusy || !activeStore?.id) return;
+        setStockAlertBusy(true);
+        try {
+            const method = stockAlertSubscribed ? 'DELETE' : 'POST';
+            const data = await stockAlertRequest(id, { storeId: activeStore.id, storeType: activeStore.type, variantValue: alertVariantValue }, token, method);
+            setStockAlertSubscribed(data.subscribed);
+            toast.success(data.subscribed ? "We'll notify you when this product is back in stock." : 'Stock alert removed.');
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setStockAlertBusy(false);
+        }
+    });
 
     const loadProduct = async (silent = false) => {
         try {
@@ -609,7 +639,15 @@ const ProductDetailsPage = () => {
                                 )}
 
                                 {/* Compact Demand/Notify Button */}
-                                {isBtnDisabled && (
+                                {isOutOfStock && product?.inStore && activeStore?.id ? (
+                                    <button
+                                        onClick={handleStockAlert}
+                                        disabled={stockAlertBusy}
+                                        className="shrink-0 flex items-center gap-2 px-4 py-3 rounded-full border border-[#0c831f] text-[#0c831f] font-bold text-sm disabled:opacity-50"
+                                    >
+                                        <Bell size={18} /> {stockAlertSubscribed ? 'Alert On' : 'Notify Me'}
+                                    </button>
+                                ) : isBtnDisabled && (
                                     <button
                                         onClick={handleDemandRequest}
                                         disabled={isSubmittingDemand || demandLogged}
