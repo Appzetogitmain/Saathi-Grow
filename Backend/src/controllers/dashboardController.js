@@ -196,6 +196,27 @@ export const getDashboardStats = async (req, res) => {
 
     const supportStats = pendingTickets[0] || { actionRequired: 0, totalActive: 0 };
 
+    let outOfStockItems = [];
+    if (canViewInventory) {
+      const oosQuery = {
+        status: { $ne: 'Draft' },
+        $or: [
+          { status: 'Out of Stock' },
+          { stock: { $lte: 0 }, vendor: { $exists: true } },
+          { 'branchStocks.stock': { $lte: 0 } }
+        ]
+      };
+      if (role !== 'Admin' && req.admin.branchId) {
+        oosQuery['branchStocks.branchId'] = req.admin.branchId;
+      }
+      outOfStockItems = await Product.find(oosQuery)
+        .select('name image gallery sku variants branchStocks stock vendor status unitType unitValue category')
+        .populate('vendor', 'storeName name')
+        .populate('branchStocks.branchId', 'name branchName')
+        .limit(10)
+        .lean();
+    }
+
     res.json({
       success: true,
       stats: {
@@ -211,6 +232,7 @@ export const getDashboardStats = async (req, res) => {
         lowStockCount: canViewInventory ? finalLowStockCount : null,
         activeRiders: role === 'Admin' || role === 'Store Manager' ? activeRiders : null
       },
+      outOfStockItems,
       channels: canViewOrders ? {
         pos: channelSplit.find(c => c._id === 'pos')?.count || 0,
         online: channelSplit.find(c => c._id === 'online')?.count || 0

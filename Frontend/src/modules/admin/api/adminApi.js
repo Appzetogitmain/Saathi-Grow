@@ -176,3 +176,28 @@ export const getDashboardStats = async (token) => {
   if (!response.ok) throw new Error(data.message || 'Failed to fetch dashboard stats');
   return data;
 };
+
+export const getLowStockAlerts = async (token, params = {}) => {
+  const query = buildQuery(params);
+  const response = await fetch(`${API_BASE_URL}/admin/products/inventory/low-stock${query}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Failed to fetch stock alerts');
+  return data;
+};
+
+export const quickRestockProduct = async (token, productId, payload) => {
+  const response = await fetch(`${API_BASE_URL}/admin/products/${productId}/quick-restock`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Failed to restock product');
+  return data;
+};
+

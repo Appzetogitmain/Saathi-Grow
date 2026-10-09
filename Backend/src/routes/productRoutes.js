@@ -19,7 +19,8 @@ import {
   getBranchWiseStock,
   getLowStockAlerts,
   bulkUploadProducts,
-  bulkUploadProductsJson
+  bulkUploadProductsJson,
+  quickRestock
 } from '../controllers/productController.js';
 import { protectAdmin, restrictTo, requirePermission, optionalProtectAdmin, protectStoreManager, optionalProtectStoreManager, optionalProtect } from '../middleware/authMiddleware.js';
 import { upload, productImageUpload } from '../config/cloudinary.js';
@@ -68,5 +69,6 @@ router.route('/:id')
   .delete(requirePermission('MANAGE_PRODUCTS'), restrictTo('Admin', 'Store Manager'), deleteProduct);
 
 router.post('/:id/inventory', requirePermission('MANAGE_INVENTORY'), adjustInventory);
+router.post('/:id/quick-restock', requirePermission('MANAGE_INVENTORY'), quickRestock);
 
 export default router;

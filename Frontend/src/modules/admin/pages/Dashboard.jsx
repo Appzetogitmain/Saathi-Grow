@@ -14,6 +14,7 @@ import { getDashboardStats } from '../api/adminApi';
 import OrderDetailsModal from '../../../common/components/orders/OrderDetailsModal';
 import PageInfoTooltip from '../../../common/components/modals/PageInfoTooltip';
 import { pageInfoData } from '../../../common/data/pageInfoData';
+import OutOfStockWidget from '../components/OutOfStockWidget';
 
 const Dashboard = () => {
     const { t } = useTranslation(['admin_dashboard', 'common']);
@@ -49,7 +50,7 @@ const Dashboard = () => {
         );
     }
 
-    const { stats: apiStats, recentOrders: apiOrders, revenueData: apiRevenueData, channels } = stats || {};
+    const { stats: apiStats, recentOrders: apiOrders, revenueData: apiRevenueData, channels, outOfStockItems } = stats || {};
 
     const pieData = [
         { name: 'POS', value: channels?.pos || 0, color: '#1e293b' },
@@ -103,6 +104,9 @@ const Dashboard = () => {
                     </Link>
                 ))}
             </div>
+
+            {/* Out of Stock Action Widget */}
+            <OutOfStockWidget initialItems={outOfStockItems} />
 
             {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
