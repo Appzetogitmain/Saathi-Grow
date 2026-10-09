@@ -15,7 +15,7 @@ export const getCampaignSections = async (req, res) => {
 
     const listQuery = CampaignSection.find()
       .select('title subtitle highlightText displayType bgColor textColor accentColor isActive bannerImage products vendor')
-      .populate('products.productId', 'name image basePrice mrp sku')
+      .populate('products.productId', 'name image basePrice mrp sku variants subCategory')
       .sort('-createdAt')
       .lean();
 
@@ -60,7 +60,7 @@ export const getCampaignSections = async (req, res) => {
 export const getCampaignById = async (req, res) => {
   try {
     const section = await CampaignSection.findById(req.params.id)
-      .populate('products.productId', 'name image basePrice mrp sku')
+      .populate('products.productId', 'name image basePrice mrp sku variants subCategory')
       .lean();
     if (!section) return res.status(404).json({ message: 'Campaign not found' });
     res.json(section);
@@ -87,7 +87,7 @@ export const getActiveCampaignSections = async (req, res) => {
       bannerImage: 1,
       products: 1
     })
-      .populate('products.productId', 'name image basePrice mrp unitType unitValue category status isSaathigro branchStocks vendor stock lowStockThreshold')
+      .populate('products.productId', 'name image basePrice mrp unitType unitValue category subCategory status isSaathigro branchStocks vendor stock lowStockThreshold variants')
       .sort('-createdAt')
       .lean();
 
@@ -177,29 +177,48 @@ export const getCampaignMetadata = async (req, res) => {
       return res.status(404).json({ message: 'Campaign not found' });
     }
 
-    const results = await CampaignSection.aggregate([
-      { $match: { _id: new mongoose.Types.ObjectId(campaignId), isActive: true } },
-      {
-        $project: {
-          title: 1,
-          subtitle: 1,
-          highlightText: 1,
-          displayType: 1,
-          bgColor: 1,
-          textColor: 1,
-          accentColor: 1,
-          bannerImage: 1,
-          isActive: 1,
-          totalProducts: { $size: '$products' }
-        }
-      }
-    ]);
+    const campaign = await CampaignSection.findOne({ _id: campaignId, isActive: true })
+      .select('title subtitle highlightText displayType bgColor textColor accentColor bannerImage isActive products')
+      .populate('products.productId', 'category subCategory')
+      .lean();
 
-    if (!results || results.length === 0) {
+    if (!campaign) {
       return res.status(404).json({ message: 'Campaign not found' });
     }
 
-    res.json(results[0]);
+    // Extract unique subcategories and categories present in this campaign
+    const subCategoriesSet = new Set();
+    const categoriesSet = new Set();
+    (campaign.products || []).forEach(cp => {
+      const p = cp.productId;
+      if (p) {
+        if (p.subCategory && typeof p.subCategory === 'string' && p.subCategory.trim()) {
+          subCategoriesSet.add(p.subCategory.trim());
+        }
+        if (p.category && typeof p.category === 'string' && p.category.trim()) {
+          categoriesSet.add(p.category.trim());
+        }
+      }
+    });
+
+    const subCategories = Array.from(subCategoriesSet);
+    const categories = Array.from(categoriesSet);
+
+    res.json({
+      _id: campaign._id,
+      title: campaign.title,
+      subtitle: campaign.subtitle,
+      highlightText: campaign.highlightText,
+      displayType: campaign.displayType,
+      bgColor: campaign.bgColor,
+      textColor: campaign.textColor,
+      accentColor: campaign.accentColor,
+      bannerImage: campaign.bannerImage,
+      isActive: campaign.isActive,
+      totalProducts: (campaign.products || []).length,
+      subCategories,
+      categories
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -361,7 +380,7 @@ export const getCampaignProducts = async (req, res) => {
 
     const section = await CampaignSection.findById(req.params.id)
       .slice('products', [(pageNum - 1) * limitNum, limitNum])
-      .populate('products.productId', 'name image basePrice mrp sku unitType unitValue category status isVeg branchStocks vendor stock lowStockThreshold');
+      .populate('products.productId', 'name image basePrice mrp sku unitType unitValue category subCategory status isVeg branchStocks vendor stock lowStockThreshold variants');
 
     if (!section) return res.status(404).json({ message: 'Campaign not found' });
 

@@ -543,7 +543,7 @@ export const getProducts = async (req, res) => {
         .limit(Number(limit));
 
       if (!req.admin && !req.vendor) {
-        productQuery = productQuery.select('name image gallery variants description basePrice mrp category status brandName unitType unitValue isVeg sku branchStocks vendor stock lowStockThreshold averageRating ratingCount displayOrder');
+        productQuery = productQuery.select('name image gallery variants description basePrice mrp category subCategory status brandName unitType unitValue isVeg sku branchStocks vendor stock lowStockThreshold averageRating ratingCount displayOrder');
       }
 
       products = await productQuery
@@ -566,7 +566,7 @@ export const getProducts = async (req, res) => {
           .limit(Number(limit));
 
         if (!req.admin && !req.vendor) {
-          q1 = q1.select('name image gallery variants description basePrice mrp category status brandName unitType unitValue isVeg sku branchStocks vendor stock lowStockThreshold averageRating ratingCount displayOrder');
+          q1 = q1.select('name image gallery variants description basePrice mrp category subCategory status brandName unitType unitValue isVeg sku branchStocks vendor stock lowStockThreshold averageRating ratingCount displayOrder');
         }
 
         const res1 = await q1
@@ -584,7 +584,7 @@ export const getProducts = async (req, res) => {
             .limit(remainingNeeded);
 
           if (!req.admin && !req.vendor) {
-            q2 = q2.select('name image gallery variants description basePrice mrp category status brandName unitType unitValue isVeg sku branchStocks vendor stock lowStockThreshold averageRating ratingCount displayOrder');
+            q2 = q2.select('name image gallery variants description basePrice mrp category subCategory status brandName unitType unitValue isVeg sku branchStocks vendor stock lowStockThreshold averageRating ratingCount displayOrder');
           }
 
           const res2 = await q2
@@ -602,7 +602,7 @@ export const getProducts = async (req, res) => {
           .limit(Number(limit));
 
         if (!req.admin && !req.vendor) {
-          q2 = q2.select('name image gallery variants description basePrice mrp category status brandName unitType unitValue isVeg sku branchStocks vendor stock lowStockThreshold averageRating ratingCount displayOrder');
+          q2 = q2.select('name image gallery variants description basePrice mrp category subCategory status brandName unitType unitValue isVeg sku branchStocks vendor stock lowStockThreshold averageRating ratingCount displayOrder');
         }
 
         products = await q2

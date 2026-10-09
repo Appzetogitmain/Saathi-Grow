@@ -12,7 +12,7 @@ export const getOfferDeals = async (req, res) => {
     }
     // If Admin (no req.vendor), query remains empty to see ALL offers
     const offers = await OfferDeal.find(query)
-      .populate('products.productId', 'name image basePrice mrp sku')
+      .populate('products.productId', 'name image basePrice mrp sku variants subCategory')
       .sort({ displayOrder: 1, createdAt: -1 });
     res.json(offers);
   } catch (error) {
@@ -24,7 +24,7 @@ export const getOfferDeals = async (req, res) => {
 export const getOfferDealById = async (req, res) => {
   try {
     const offer = await OfferDeal.findById(req.params.id)
-      .populate('products.productId', 'name image basePrice mrp sku');
+      .populate('products.productId', 'name image basePrice mrp sku variants subCategory');
     if (!offer) return res.status(404).json({ message: 'Offer not found' });
     res.json(offer);
   } catch (error) {
@@ -88,7 +88,7 @@ export const createOfferDeal = async (req, res) => {
       }, { offerId: offer._id.toString(), type: 'offer' });
     }
 
-    const populatedOffer = await offer.populate('products.productId', 'name image basePrice mrp sku');
+    const populatedOffer = await offer.populate('products.productId', 'name image basePrice mrp sku variants subCategory');
     res.status(201).json(populatedOffer);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -167,7 +167,7 @@ export const updateOfferDeal = async (req, res) => {
     }
 
     await offer.save();
-    const updated = await OfferDeal.findById(offer._id).populate('products.productId', 'name image basePrice mrp sku');
+    const updated = await OfferDeal.findById(offer._id).populate('products.productId', 'name image basePrice mrp sku variants subCategory');
     res.json(updated);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -225,7 +225,7 @@ export const getActiveOfferDeals = async (req, res) => {
     // Manually populate the sliced products since populate() doesn't work directly on aggregate result objects easily without more stages
     const offers = await OfferDeal.populate(result, {
       path: 'products.productId',
-      select: 'name image basePrice mrp sku unitType unitValue status isVeg branchStocks vendor stock lowStockThreshold'
+      select: 'name image basePrice mrp sku unitType unitValue status isVeg branchStocks vendor stock lowStockThreshold variants category subCategory'
     });
 
     // Decorate each product with isDeliverable flag when store context is provided
@@ -313,7 +313,7 @@ export const getOfferProducts = async (req, res) => {
       ]
     })
       .slice('products', [(pageNum - 1) * limitNum, limitNum])
-      .populate('products.productId', 'name image basePrice mrp sku unitType unitValue status isVeg branchStocks vendor category stock lowStockThreshold');
+      .populate('products.productId', 'name image basePrice mrp sku unitType unitValue status isVeg branchStocks vendor category subCategory stock lowStockThreshold variants');
 
     if (!offer) return res.status(404).json({ message: 'Offer not found or expired' });
 

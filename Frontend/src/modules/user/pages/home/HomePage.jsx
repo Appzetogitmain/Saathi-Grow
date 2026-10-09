@@ -432,7 +432,9 @@ const HomePage = ({ }) => {
                         basePrice: cp.productId?.basePrice,
                         price: cp.productId?.basePrice,
                         mrp: cp.productId?.mrp || cp.productId?.basePrice,
-                        isDeliverable: cp.productId?.isDeliverable
+                        isDeliverable: cp.productId?.isDeliverable,
+                        variants: Array.isArray(cp.productId?.variants) ? cp.productId.variants : [],
+                        subCategory: cp.productId?.subCategory || ''
                     }));
                 return (
                     <div
@@ -498,7 +500,9 @@ export const normalizeProduct = (product) => ({
     isDeliverable: product.isDeliverable,
     availableStock: product.availableStock,
     lowStockThreshold: product.lowStockThreshold,
-    inStore: product.inStore
+    inStore: product.inStore,
+    variants: Array.isArray(product.variants) ? product.variants : [],
+    subCategory: product.subCategory || ''
 });
 
 // Sub-component for individual product rows to manage scroll state with Lazy Loading

@@ -31,6 +31,7 @@ const CampaignProductsPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || '-createdAt');
   const [isVegOnly, setIsVegOnly] = useState(searchParams.get('isVeg') === 'true');
+  const [selectedSubCat, setSelectedSubCat] = useState(searchParams.get('sub') || 'all');
 
   // Fetch Campaign Metadata
   useEffect(() => {
@@ -67,6 +68,7 @@ const CampaignProductsPage = () => {
       };
 
       if (isVegOnly) params.isVeg = true;
+      if (selectedSubCat && selectedSubCat !== 'all') params.subCategory = selectedSubCat;
 
       const data = await fetchProducts(params);
       const normalized = (data.products || []).map(normalizeProduct);
@@ -87,9 +89,7 @@ const CampaignProductsPage = () => {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [campaignId, searchQuery, sortBy, isVegOnly, activeStore]);
-
-  const hasMore = page < totalPages;
+  }, [campaignId, searchQuery, sortBy, isVegOnly, selectedSubCat, activeStore]);
 
   // Initial Load & Filter Changes
   useEffect(() => {
@@ -103,6 +103,31 @@ const CampaignProductsPage = () => {
     setIsBottomSheetOpen(showFilters);
     return () => setIsBottomSheetOpen(false);
   }, [showFilters, setIsBottomSheetOpen]);
+
+  const hasMore = page < totalPages;
+
+  const availableSubCategories = useMemo(() => {
+    if (campaign?.subCategories && campaign.subCategories.length > 0) {
+      return campaign.subCategories;
+    }
+    if (campaign?.categories && campaign.categories.length > 0) {
+      return campaign.categories;
+    }
+    const extracted = new Set();
+    products.forEach(p => {
+      if (p.subCategory && typeof p.subCategory === 'string') extracted.add(p.subCategory.trim());
+      else if (p.category && typeof p.category === 'string') extracted.add(p.category.trim());
+    });
+    return Array.from(extracted).filter(Boolean);
+  }, [campaign, products]);
+
+  const handleSubCatChange = (sub) => {
+    setSelectedSubCat(sub);
+    const newParams = new URLSearchParams(searchParams);
+    if (sub && sub !== 'all') newParams.set('sub', sub);
+    else newParams.delete('sub');
+    setSearchParams(newParams);
+  };
 
   const handleLoadMore = () => {
     if (page < totalPages) {
@@ -209,7 +234,7 @@ const CampaignProductsPage = () => {
         </div>
 
         {/* Compact Filter Chips */}
-        <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide lg-scrollbar-show">
+        <div className="px-4 pb-2.5 flex items-center gap-2 overflow-x-auto scrollbar-hide lg-scrollbar-show">
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`shop-pill-btn flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black tracking-wide border transition-all whitespace-nowrap ${showFilters ? 'bg-black text-white border-black' : 'bg-white dark:bg-zinc-900 border-gray-100 dark:border-white/10 text-gray-700 dark:text-gray-300 shadow-sm'}`}
@@ -228,6 +253,35 @@ const CampaignProductsPage = () => {
             Veg Only
           </button>
         </div>
+
+        {/* Sub-category / Festival Section Filter Chips */}
+        {availableSubCategories.length > 0 && (
+          <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+            <button
+              onClick={() => handleSubCatChange('all')}
+              className={`shop-pill-btn flex items-center px-4 py-1.5 rounded-full text-[11px] font-black tracking-wide border transition-all whitespace-nowrap active:scale-95 ${
+                selectedSubCat === 'all'
+                  ? 'bg-[#0c831f] text-white border-[#0c831f] shadow-md shadow-green-500/20'
+                  : 'bg-white dark:bg-zinc-900 border-gray-100 dark:border-white/10 text-gray-700 dark:text-gray-300 shadow-sm'
+              }`}
+            >
+              All
+            </button>
+            {availableSubCategories.map((sub) => (
+              <button
+                key={sub}
+                onClick={() => handleSubCatChange(sub)}
+                className={`shop-pill-btn flex items-center px-4 py-1.5 rounded-full text-[11px] font-black tracking-wide border transition-all whitespace-nowrap active:scale-95 ${
+                  selectedSubCat === sub
+                    ? 'bg-[#0c831f] text-white border-[#0c831f] shadow-md shadow-green-500/20'
+                    : 'bg-white dark:bg-zinc-900 border-gray-100 dark:border-white/10 text-gray-700 dark:text-gray-300 shadow-sm'
+                }`}
+              >
+                {sub}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Content Area */}
