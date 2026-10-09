@@ -17,6 +17,7 @@ import DeliveryRun from '../models/DeliveryRun.js';
 import { findOptimalSource, geocodeAddress, calculateDistance } from '../services/locationService.js';
 import PromoCode from '../models/PromoCode.js';
 import PromoUsage from '../models/PromoUsage.js';
+import Notification from '../models/Notification.js';
 import { sendPushNotification, notifyByBranchAndPermission, notifySuperAdmins } from '../services/notificationService.js';
 import { sendSystemNotificationEmail } from '../services/emailService.js';
 import { buildRouteCacheKey, getCachedRoute, setCachedRoute } from '../services/routeCacheService.js';
@@ -615,17 +616,16 @@ export const decrementStock = async (order) => {
         continue;
       }
 
+      const variantVal = item.selectedVariant?.value || (typeof item.selectedVariant === 'string' ? item.selectedVariant : null);
+
       if (!prodData.vendor && branchId) {
         // Logic for Branch Stock
-        // Try to update existing entry
         let updatedProduct = await Product.findOneAndUpdate(
           { _id: productId, 'branchStocks.branchId': branchId },
           { $inc: { 'branchStocks.$.stock': -quantity } },
           { new: true }
         );
 
-        // If no branch entry found, but it's a valid product, we need to initialize this branch entry
-        // This handles "isAllBranches" or newly assigned products
         if (!updatedProduct) {
           updatedProduct = await Product.findOneAndUpdate(
             { _id: productId },
@@ -645,24 +645,95 @@ export const decrementStock = async (order) => {
         if (updatedProduct) {
           console.log(`[STOCK-SUCCESS] Deducted ${quantity} from Branch ${branchId} for Product ${productId}`);
           const currentBS = updatedProduct.branchStocks.find(bs => bs.branchId.toString() === branchId.toString());
+
+          // Also deduct variant stock if variant exists
+          let isVariantOutOfStock = false;
+          if (variantVal && updatedProduct.variants?.length > 0) {
+            const vIdx = updatedProduct.variants.findIndex(v => v.value === variantVal);
+            if (vIdx !== -1) {
+              const currentVStock = updatedProduct.variants[vIdx].stock || 0;
+              const newVStock = Math.max(0, currentVStock - quantity);
+              updatedProduct.variants[vIdx].stock = newVStock;
+              if (newVStock <= 0) {
+                isVariantOutOfStock = true;
+              }
+            }
+          }
+
+          const currentStock = currentBS?.stock || 0;
+          const isBranchOutOfStock = currentStock <= 0;
+
+          if ((isBranchOutOfStock || isVariantOutOfStock) && updatedProduct.status !== 'Draft') {
+            updatedProduct.status = 'Out of Stock';
+          }
+          await updatedProduct.save();
+
           await InventoryLog.create({
             product: productId,
             branchId: branchId,
             changeAmount: -quantity,
-            previousStock: (currentBS?.stock || 0) + quantity,
-            newStock: currentBS?.stock || 0,
+            previousStock: currentStock + quantity,
+            newStock: currentStock,
             type: 'Removal',
             reason: `Order Placement #${order.orderId}`,
             orderId: order._id
           });
 
-          // --- Production Stock Alert ---
-          const threshold = currentBS?.lowStockThreshold || 10;
-          if (currentBS?.stock <= threshold) {
-            notifyByBranchAndPermission('MANAGE_INVENTORY', branchId, {
-              title: 'Low Stock Alert!',
-              body: `Product ${updatedProduct.name} is low at your branch (${currentBS.stock} left).`
-            }, { productId: updatedProduct._id.toString(), type: 'inventory_alert' });
+          // Fetch branch name for alert
+          let branchName = 'Main Branch';
+          try {
+            const bDoc = await Branch.findById(branchId).select('name branchName').lean();
+            branchName = bDoc?.name || bDoc?.branchName || 'Main Branch';
+          } catch (e) {
+            // ignore
+          }
+
+          // --- Out of Stock Alert (Socket + In-App DB Notification) ---
+          if (isBranchOutOfStock || isVariantOutOfStock) {
+            try {
+              const { io } = await import('../app.js');
+              const outOfStockPayload = {
+                productId: updatedProduct._id,
+                name: updatedProduct.name,
+                image: updatedProduct.image || (updatedProduct.gallery && updatedProduct.gallery[0]) || '',
+                sku: updatedProduct.sku,
+                branchId: branchId ? branchId.toString() : null,
+                branchName,
+                variant: variantVal || null,
+                stock: isVariantOutOfStock ? 0 : currentStock,
+                timestamp: new Date()
+              };
+
+              io.emit('PRODUCT_OUT_OF_STOCK', outOfStockPayload);
+
+              await Notification.create({
+                recipient: null,
+                recipientModel: 'Staff',
+                isBroadcast: true,
+                targetGroup: 'all',
+                title: '🚨 Out of Stock Alert',
+                body: `${updatedProduct.name}${variantVal ? ` (${variantVal})` : ''} is OUT OF STOCK at ${branchName}!`,
+                data: {
+                  productId: updatedProduct._id.toString(),
+                  type: 'out_of_stock',
+                  branchId: branchId ? branchId.toString() : null,
+                  branchName,
+                  variant: variantVal || null
+                },
+                type: 'out_of_stock'
+              });
+            } catch (sockErr) {
+              console.error('[STOCK-ALERT-SOCKET-ERR]', sockErr);
+            }
+          } else {
+            // --- Production Low Stock Alert ---
+            const threshold = currentBS?.lowStockThreshold || 10;
+            if (currentStock <= threshold) {
+              notifyByBranchAndPermission('MANAGE_INVENTORY', branchId, {
+                title: 'Low Stock Alert!',
+                body: `Product ${updatedProduct.name} is low at your branch (${currentStock} left).`
+              }, { productId: updatedProduct._id.toString(), type: 'inventory_alert' });
+            }
           }
         } else {
           console.warn(`[STOCK-WARN] No match found for Product: ${productId} even after attempt to initialize Branch: ${branchId}`);
@@ -678,22 +749,88 @@ export const decrementStock = async (order) => {
 
         if (updatedProduct) {
           console.log(`[STOCK-SUCCESS] Deducted ${quantity} from Vendor ${targetVendor} for Product ${productId}`);
+
+          let isVariantOutOfStock = false;
+          if (variantVal && updatedProduct.variants?.length > 0) {
+            const vIdx = updatedProduct.variants.findIndex(v => v.value === variantVal);
+            if (vIdx !== -1) {
+              const currentVStock = updatedProduct.variants[vIdx].stock || 0;
+              const newVStock = Math.max(0, currentVStock - quantity);
+              updatedProduct.variants[vIdx].stock = newVStock;
+              if (newVStock <= 0) {
+                isVariantOutOfStock = true;
+              }
+            }
+          }
+
+          const currentStock = updatedProduct.stock || 0;
+          const isVendorOutOfStock = currentStock <= 0;
+
+          if ((isVendorOutOfStock || isVariantOutOfStock) && updatedProduct.status !== 'Draft') {
+            updatedProduct.status = 'Out of Stock';
+          }
+          await updatedProduct.save();
+
           await InventoryLog.create({
             product: productId,
             vendorId: targetVendor,
             changeAmount: -quantity,
-            previousStock: (updatedProduct.stock || 0) + quantity,
-            newStock: updatedProduct.stock || 0,
+            previousStock: currentStock + quantity,
+            newStock: currentStock,
             type: 'Removal',
             reason: `Order Placement #${order.orderId}`,
             orderId: order._id
           });
 
-          // --- Production Vendor Stock Alert ---
-          if (updatedProduct.stock <= (updatedProduct.lowStockThreshold || 10)) {
+          let vendorStoreName = 'Vendor Managed';
+          try {
+            const vDoc = await Vendor.findById(targetVendor).select('storeName name').lean();
+            vendorStoreName = vDoc?.storeName || vDoc?.name || 'Vendor Managed';
+          } catch (e) {
+            // ignore
+          }
+
+          if (isVendorOutOfStock || isVariantOutOfStock) {
+            try {
+              const { io } = await import('../app.js');
+              const outOfStockPayload = {
+                productId: updatedProduct._id,
+                name: updatedProduct.name,
+                image: updatedProduct.image || (updatedProduct.gallery && updatedProduct.gallery[0]) || '',
+                sku: updatedProduct.sku,
+                vendorId: targetVendor ? targetVendor.toString() : null,
+                branchName: vendorStoreName,
+                variant: variantVal || null,
+                stock: isVariantOutOfStock ? 0 : currentStock,
+                timestamp: new Date()
+              };
+
+              io.emit('PRODUCT_OUT_OF_STOCK', outOfStockPayload);
+
+              await Notification.create({
+                recipient: null,
+                recipientModel: 'Staff',
+                isBroadcast: true,
+                targetGroup: 'all',
+                title: '🚨 Out of Stock Alert',
+                body: `${updatedProduct.name}${variantVal ? ` (${variantVal})` : ''} is OUT OF STOCK at ${vendorStoreName}!`,
+                data: {
+                  productId: updatedProduct._id.toString(),
+                  type: 'out_of_stock',
+                  vendorId: targetVendor ? targetVendor.toString() : null,
+                  branchName: vendorStoreName,
+                  variant: variantVal || null
+                },
+                type: 'out_of_stock'
+              });
+            } catch (sockErr) {
+              console.error('[STOCK-ALERT-SOCKET-ERR]', sockErr);
+            }
+          } else if (currentStock <= (updatedProduct.lowStockThreshold || 10)) {
+            // --- Production Vendor Stock Alert ---
             await sendPushNotification(targetVendor, 'Vendor', {
               title: 'Low Stock Alert!',
-              body: `Your product '${updatedProduct.name}' is running low (${updatedProduct.stock} items left).`
+              body: `Your product '${updatedProduct.name}' is running low (${currentStock} items left).`
             }, { productId: updatedProduct._id.toString(), type: 'inventory_alert' });
           }
         } else {
@@ -740,6 +877,8 @@ export const incrementStock = async (order) => {
       const prodData = await Product.findById(productId);
       if (!prodData) continue;
 
+      const variantVal = item.selectedVariant?.value || (typeof item.selectedVariant === 'string' ? item.selectedVariant : null);
+
       if (!prodData.vendor && branchId) {
         const updatedProduct = await Product.findOneAndUpdate(
           { _id: productId, 'branchStocks.branchId': branchId },
@@ -749,6 +888,18 @@ export const incrementStock = async (order) => {
 
         if (updatedProduct) {
           const currentBS = updatedProduct.branchStocks.find(bs => bs.branchId.toString() === branchId.toString());
+
+          if (variantVal && updatedProduct.variants?.length > 0) {
+            const vIdx = updatedProduct.variants.findIndex(v => v.value === variantVal);
+            if (vIdx !== -1) {
+              updatedProduct.variants[vIdx].stock = (updatedProduct.variants[vIdx].stock || 0) + quantity;
+            }
+          }
+          if (updatedProduct.status === 'Out of Stock') {
+            updatedProduct.status = 'Active';
+          }
+          await updatedProduct.save();
+
           await InventoryLog.create({
             product: productId,
             branchId: branchId,
@@ -770,6 +921,17 @@ export const incrementStock = async (order) => {
         );
 
         if (updatedProduct) {
+          if (variantVal && updatedProduct.variants?.length > 0) {
+            const vIdx = updatedProduct.variants.findIndex(v => v.value === variantVal);
+            if (vIdx !== -1) {
+              updatedProduct.variants[vIdx].stock = (updatedProduct.variants[vIdx].stock || 0) + quantity;
+            }
+          }
+          if (updatedProduct.status === 'Out of Stock') {
+            updatedProduct.status = 'Active';
+          }
+          await updatedProduct.save();
+
           await InventoryLog.create({
             product: productId,
             vendorId: targetVendor,

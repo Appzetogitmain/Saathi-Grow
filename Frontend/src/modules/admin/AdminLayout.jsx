@@ -9,6 +9,8 @@ import FirebaseNotificationHandler from '../../common/components/FirebaseNotific
 import axios from 'axios';
 import { API_BASE_URL } from '../../config/apiConfig';
 import NewOrderPopup from './components/NewOrderPopup';
+import OutOfStockToast from './components/OutOfStockToast';
+import InventoryAlertDropdown from './components/InventoryAlertDropdown';
 
 const AdminLayout = () => {
     const { t, i18n: i18nInstance } = useTranslation(['admin_sidebar', 'common']);
@@ -40,6 +42,7 @@ const AdminLayout = () => {
     return (
         <div className="min-h-screen bg-slate-50 font-sans">
             <FirebaseNotificationHandler token={adminToken} role="admin" />
+            <OutOfStockToast />
             {adminUser?.role === 'Admin' && <NewOrderPopup />}
             <AdminSidebar
                 showMobile={showMobileSidebar}
@@ -87,6 +90,9 @@ const AdminLayout = () => {
                                 </>
                             )}
                         </div>
+
+                        {/* Critical Stock Alerts */}
+                        <InventoryAlertDropdown />
 
                         {/* Notifications */}
                         <button 

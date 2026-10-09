@@ -2177,6 +2177,9 @@ export const getLowStockAlerts = async (req, res) => {
                 sku: 1,
                 image: 1,
                 category: 1,
+                variants: 1,
+                unitType: 1,
+                unitValue: 1,
                 branchName: "$branchInfo.name",
                 branchId: "$branchStocks.branchId",
                 stock: "$branchStocks.stock",
@@ -2214,6 +2217,9 @@ export const getLowStockAlerts = async (req, res) => {
                 sku: 1,
                 image: 1,
                 category: 1,
+                variants: 1,
+                unitType: 1,
+                unitValue: 1,
                 branchName: "Vendor Managed",
                 storeName: "$vendorInfo.storeName",
                 stock: "$stock",
@@ -2664,5 +2670,106 @@ export const bulkReorderProducts = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Failed to reorder products: ' + error.message });
+  }
+};
+
+// @desc    Quick Restock a product (or variant) directly with 1-click
+// @route   POST /api/admin/products/:id/quick-restock
+// @access  Private (Admin/Staff)
+export const quickRestock = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { branchId, amount, variantValue, reason } = req.body;
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Valid positive restock quantity is required' });
+    }
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
+    }
+
+    // 1. Update variant stock if variantValue provided
+    if (variantValue && product.variants && product.variants.length > 0) {
+      const v = product.variants.find(item => item.value === variantValue);
+      if (v) {
+        v.stock = (v.stock || 0) + numAmount;
+      }
+    }
+
+    // 2. Update branch stock or vendor stock
+    let targetBranchId = branchId;
+    if (req.admin.role !== 'Admin' && req.admin.branchId) {
+      targetBranchId = req.admin.branchId;
+    }
+
+    if (!product.vendor) {
+      if (!targetBranchId && product.branchStocks?.length > 0) {
+        targetBranchId = product.branchStocks[0].branchId;
+      }
+
+      if (targetBranchId) {
+        const bsIdx = product.branchStocks.findIndex(bs => bs.branchId.toString() === targetBranchId.toString());
+        if (bsIdx !== -1) {
+          product.branchStocks[bsIdx].stock += numAmount;
+        } else {
+          product.branchStocks.push({
+            branchId: targetBranchId,
+            stock: numAmount,
+            lowStockThreshold: 10
+          });
+        }
+      } else {
+        product.stock = (product.stock || 0) + numAmount;
+      }
+
+      if (product.status !== 'Draft') {
+        product.status = determineProductStatus(product.branchStocks, product.stock, product.lowStockThreshold);
+      }
+    } else {
+      product.stock = (product.stock || 0) + numAmount;
+      if (product.status !== 'Draft') {
+        product.status = determineProductStatus([], product.stock, product.lowStockThreshold);
+      }
+    }
+
+    await product.save();
+
+    await InventoryLog.create({
+      product: product._id,
+      admin: req.admin._id,
+      branchId: targetBranchId || undefined,
+      vendorId: product.vendor || undefined,
+      changeAmount: numAmount,
+      previousStock: 0,
+      newStock: numAmount,
+      type: 'Addition',
+      reason: reason || 'Quick Restock via Dashboard/Alert'
+    });
+
+    // Real-time broadcast that product was restocked so toasts/badges update
+    try {
+      const { io } = await import('../app.js');
+      io.emit('PRODUCT_RESTOCKED', {
+        productId: product._id.toString(),
+        name: product.name,
+        branchId: targetBranchId ? targetBranchId.toString() : null,
+        variantValue: variantValue || null,
+        addedStock: numAmount,
+        status: product.status
+      });
+    } catch (sockErr) {
+      console.warn('Socket restock emit failed:', sockErr.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `${product.name} restocked successfully (+${numAmount})`,
+      product
+    });
+  } catch (error) {
+    console.error('Quick Restock Error:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
