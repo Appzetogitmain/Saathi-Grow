@@ -5,8 +5,8 @@
   "main": "src/app.js",
   "type": "module",
   "scripts": {
-    "start": "node src/app.js",
-    "dev": "nodemon src/app.js",
+    "start": "node api.js && node src/app.js",
+    "dev": "node api.js && nodemon src/app.js",
     "check:syntax": "node scripts/check-syntax.mjs",
     "check:env": "node scripts/validate-env.mjs",
     "ci:check": "npm run check:syntax",
