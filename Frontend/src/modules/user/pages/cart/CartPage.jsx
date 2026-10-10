@@ -204,7 +204,14 @@ const CartPage = () => {
       </div>
 
       {/* Checkout Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 p-4 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-[1001]">
+      <style>{`
+        @media (max-width: 767px) {
+          .cart-bottom-action-bar {
+            padding-bottom: max(32px, calc(env(safe-area-inset-bottom, 0px) + 16px)) !important;
+          }
+        }
+      `}</style>
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 px-4 pt-3.5 pb-8 sm:pb-9 md:py-4 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-[1001] transition-all duration-300 cart-bottom-action-bar">
         <div className="max-w-3xl mx-auto">
           <button
             onClick={handleProceed}

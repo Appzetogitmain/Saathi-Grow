@@ -1300,7 +1300,14 @@ const CheckoutPage = () => {
             </div>
 
             {/* Bottom Sticky Action Bar */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-black/95 backdrop-blur-md border-t border-gray-100 dark:border-white/5 p-4 z-50">
+            <style>{`
+                @media (max-width: 767px) {
+                    .checkout-bottom-action-bar {
+                        padding-bottom: max(32px, calc(env(safe-area-inset-bottom, 0px) + 16px)) !important;
+                    }
+                }
+            `}</style>
+            <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-black/95 backdrop-blur-md border-t border-gray-100 dark:border-white/5 px-4 pt-3.5 pb-8 sm:pb-9 md:py-4 z-50 transition-all duration-300 checkout-bottom-action-bar">
                 <div className="max-w-2xl mx-auto flex items-center justify-between gap-5 px-1">
                     <div className="flex flex-col">
                         <span className="text-[8px] text-gray-400 font-black uppercase tracking-widest">Total Pay</span>
