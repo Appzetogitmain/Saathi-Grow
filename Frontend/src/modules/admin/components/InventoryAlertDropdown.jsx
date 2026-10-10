@@ -21,7 +21,7 @@ const InventoryAlertDropdown = () => {
         if (!adminUser?.token) return;
         try {
             setLoading(true);
-            const res = await getLowStockAlerts(adminUser.token, { severity: 'Critical', limit: 8 });
+            const res = await getLowStockAlerts(adminUser.token, { severity: 'Critical', limit: 8, distinctProducts: true });
             if (res.success && Array.isArray(res.data)) {
                 setAlerts(res.data);
                 setAlertCount(Number(res.pagination?.total) || 0);

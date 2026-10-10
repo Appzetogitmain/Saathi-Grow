@@ -21,7 +21,7 @@ const OutOfStockWidget = () => {
         }
         try {
             setLoading(true);
-            const res = await getLowStockAlerts(adminUser.token, { severity: 'Critical', limit: 6 });
+            const res = await getLowStockAlerts(adminUser.token, { severity: 'Critical', limit: 6, distinctProducts: true });
             if (res.success && Array.isArray(res.data)) {
                 setItems(res.data);
                 setItemCount(Number(res.pagination?.total) || 0);
