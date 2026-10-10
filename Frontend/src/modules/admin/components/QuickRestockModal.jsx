@@ -15,13 +15,9 @@ const QuickRestockModal = ({ isOpen, onClose, product, onSuccess }) => {
         if (product) {
             setError('');
             setAmount(20);
-            if (product.variant) {
-                setSelectedVariant(product.variant);
-            } else if (product.variants && product.variants.length > 0) {
-                setSelectedVariant(product.variants[0]?.value || '');
-            } else {
-                setSelectedVariant('');
-            }
+            // A product level alert does not identify a variant. Never silently
+            // add the incoming quantity to the first variant in the list.
+            setSelectedVariant(product.variantValue || product.variant || '');
         }
     }, [product]);
 
@@ -146,7 +142,7 @@ const QuickRestockModal = ({ isOpen, onClose, product, onSuccess }) => {
                                         {branchName}
                                     </span>
                                     <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100">
-                                        Current: 0 units
+                                        Current: {Number(product.stock) || 0} units
                                     </span>
                                 </div>
                             </div>

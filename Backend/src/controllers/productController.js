@@ -2681,7 +2681,7 @@ export const quickRestock = async (req, res) => {
     const { id } = req.params;
     const { branchId, amount, variantValue, reason } = req.body;
     const numAmount = Number(amount);
-    if (isNaN(numAmount) || numAmount <= 0) {
+    if (!Number.isFinite(numAmount) || numAmount <= 0) {
       return res.status(400).json({ success: false, message: 'Valid positive restock quantity is required' });
     }
 
@@ -2690,11 +2690,13 @@ export const quickRestock = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    // 1. Update variant stock if variantValue provided
-    if (variantValue && product.variants && product.variants.length > 0) {
-      const v = product.variants.find(item => item.value === variantValue);
-      if (v) {
-        v.stock = (v.stock || 0) + numAmount;
+    // Variant selection is optional for a product level/branch alert, but when
+    // supplied it must resolve to a real variant instead of silently ignoring it.
+    let selectedVariant = null;
+    if (variantValue) {
+      selectedVariant = product.variants?.find(item => item.value === variantValue);
+      if (!selectedVariant) {
+        return res.status(400).json({ success: false, message: 'Product variant not found' });
       }
     }
 
@@ -2712,11 +2714,19 @@ export const quickRestock = async (req, res) => {
       let previousStock = 0;
       let newStock = numAmount;
 
+      if (targetBranchId && !mongoose.isValidObjectId(targetBranchId)) {
+        return res.status(400).json({ success: false, message: 'Valid branch is required for restocking' });
+      }
+
       if (targetBranchId) {
+        const branchExists = await Branch.exists({ _id: targetBranchId });
+        if (!branchExists) {
+          return res.status(400).json({ success: false, message: 'Branch not found' });
+        }
         const bsIdx = product.branchStocks.findIndex(bs => bs.branchId.toString() === targetBranchId.toString());
         if (bsIdx !== -1) {
-          previousStock = product.branchStocks[bsIdx].stock;
-          product.branchStocks[bsIdx].stock += numAmount;
+          previousStock = Number(product.branchStocks[bsIdx].stock) || 0;
+          product.branchStocks[bsIdx].stock = previousStock + numAmount;
           newStock = product.branchStocks[bsIdx].stock;
         } else {
           product.branchStocks.push({
@@ -2732,6 +2742,8 @@ export const quickRestock = async (req, res) => {
         product.stock = previousStock + numAmount;
         newStock = product.stock;
       }
+
+      if (selectedVariant) selectedVariant.stock = (Number(selectedVariant.stock) || 0) + numAmount;
 
       if (product.status !== 'Draft') {
         product.status = determineProductStatus(product.branchStocks, product.stock, product.lowStockThreshold);
@@ -2750,6 +2762,7 @@ export const quickRestock = async (req, res) => {
         reason: reason || 'Quick Restock via Dashboard/Alert'
       });
     } else {
+      if (selectedVariant) selectedVariant.stock = (Number(selectedVariant.stock) || 0) + numAmount;
       const previousStock = product.stock || 0;
       product.stock = previousStock + numAmount;
       const newStock = product.stock;

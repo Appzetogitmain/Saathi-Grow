@@ -50,6 +50,7 @@ const AllProducts = () => {
     const searchTerm = searchParams.get('search') || '';
     const selectedCategory = searchParams.get('category') || '';
     const selectedBrand = searchParams.get('brand') || '';
+    const selectedStatus = searchParams.get('status') || '';
     const sourceFilter = searchParams.get('source') || 'all';
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = 10;
@@ -226,7 +227,7 @@ const AllProducts = () => {
         setLoading(true);
         try {
             const params = {
-                page, limit, search: searchTerm, category: selectedCategory, brand: selectedBrand,
+                page, limit, search: searchTerm, category: selectedCategory, brand: selectedBrand, status: selectedStatus,
                 source: sourceFilter === 'all' ? '' : sourceFilter
             };
             const [productsData, categoriesData, brandsData] = await Promise.all([
@@ -258,7 +259,7 @@ const AllProducts = () => {
         } finally {
             setLoading(false);
         }
-    }, [adminUser?.token, page, limit, searchTerm, selectedCategory, selectedBrand, sourceFilter, t]);
+    }, [adminUser?.token, page, limit, searchTerm, selectedCategory, selectedBrand, selectedStatus, sourceFilter, t]);
 
     useEffect(() => {
         fetchData();

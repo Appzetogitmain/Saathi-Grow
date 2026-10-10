@@ -53,7 +53,7 @@ router.post('/bulk-json', protectAdmin, requirePermission('MANAGE_PRODUCTS'), bu
 router.delete('/bulk', protectAdmin, requirePermission('MANAGE_PRODUCTS'), restrictTo('Admin', 'Store Manager'), bulkDeleteProducts);
 
 // Public/General Routes
-router.get('/', optionalProtect, optionalProtectStoreManager, getProducts);
+router.get('/', optionalProtect, optionalProtectAdmin, optionalProtectStoreManager, getProducts);
 router.get('/:id', optionalProtectStoreManager, getProductById);
 
 // Admin Only Dynamic Routes
