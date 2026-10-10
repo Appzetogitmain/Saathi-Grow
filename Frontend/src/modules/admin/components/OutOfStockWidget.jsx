@@ -6,20 +6,25 @@ import { useAdminAuth } from '../context/AdminAuthContext';
 import { subscribeToEvent } from '../../../services/socketService';
 import QuickRestockModal from './QuickRestockModal';
 
-const OutOfStockWidget = ({ initialItems = [] }) => {
+const OutOfStockWidget = () => {
     const { adminUser } = useAdminAuth();
-    const [items, setItems] = useState(initialItems);
-    const [loading, setLoading] = useState(false);
+    const [items, setItems] = useState([]);
+    const [itemCount, setItemCount] = useState(0);
+    const [loading, setLoading] = useState(true);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isRestockOpen, setIsRestockOpen] = useState(false);
 
     const fetchItems = useCallback(async () => {
-        if (!adminUser?.token) return;
+        if (!adminUser?.token) {
+            setLoading(false);
+            return;
+        }
         try {
             setLoading(true);
             const res = await getLowStockAlerts(adminUser.token, { severity: 'Critical', limit: 6 });
             if (res.success && Array.isArray(res.data)) {
                 setItems(res.data);
+                setItemCount(Number(res.pagination?.total) || 0);
             }
         } catch (err) {
             console.warn('Failed to fetch out of stock widget items:', err);
@@ -28,14 +33,9 @@ const OutOfStockWidget = ({ initialItems = [] }) => {
         }
     }, [adminUser?.token]);
 
-    // Initial load if not provided from dashboard stats
     useEffect(() => {
-        if (initialItems && initialItems.length > 0) {
-            setItems(initialItems);
-        } else {
-            fetchItems();
-        }
-    }, [initialItems, fetchItems]);
+        fetchItems();
+    }, [fetchItems]);
 
     // Real-time synchronization via Socket.IO & local window events
     useEffect(() => {
@@ -100,7 +100,7 @@ const OutOfStockWidget = ({ initialItems = [] }) => {
                                 Action Required: Out of Stock Products
                             </h3>
                             <span className="px-2 py-0.5 bg-rose-600 text-white text-[10px] font-black rounded-full shadow-xs">
-                                {items.length} {items.length === 1 ? 'Item' : 'Items'}
+                                {itemCount} {itemCount === 1 ? 'Item' : 'Items'}
                             </span>
                         </div>
                         <p className="text-[11px] text-slate-500 font-medium">

@@ -10,6 +10,7 @@ const InventoryAlertDropdown = () => {
     const { adminUser } = useAdminAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [alerts, setAlerts] = useState([]);
+    const [alertCount, setAlertCount] = useState(0);
     const [loading, setLoading] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isRestockOpen, setIsRestockOpen] = useState(false);
@@ -23,6 +24,7 @@ const InventoryAlertDropdown = () => {
             const res = await getLowStockAlerts(adminUser.token, { severity: 'Critical', limit: 8 });
             if (res.success && Array.isArray(res.data)) {
                 setAlerts(res.data);
+                setAlertCount(Number(res.pagination?.total) || 0);
             }
         } catch (err) {
             console.warn('Failed to fetch stock alerts:', err);
@@ -76,7 +78,7 @@ const InventoryAlertDropdown = () => {
         setIsOpen(false);
     };
 
-    const outOfStockCount = alerts.length;
+    const outOfStockCount = alertCount;
 
     return (
         <div className="relative" ref={dropdownRef}>

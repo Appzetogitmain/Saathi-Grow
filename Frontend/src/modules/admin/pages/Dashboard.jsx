@@ -50,7 +50,7 @@ const Dashboard = () => {
         );
     }
 
-    const { stats: apiStats, recentOrders: apiOrders, revenueData: apiRevenueData, channels, outOfStockItems } = stats || {};
+    const { stats: apiStats, recentOrders: apiOrders, revenueData: apiRevenueData, channels } = stats || {};
 
     const pieData = [
         { name: 'POS', value: channels?.pos || 0, color: '#1e293b' },
@@ -106,7 +106,7 @@ const Dashboard = () => {
             </div>
 
             {/* Out of Stock Action Widget */}
-            <OutOfStockWidget initialItems={outOfStockItems} />
+            <OutOfStockWidget />
 
             {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
