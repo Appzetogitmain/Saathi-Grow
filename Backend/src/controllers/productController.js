@@ -2709,44 +2709,76 @@ export const quickRestock = async (req, res) => {
         targetBranchId = product.branchStocks[0].branchId;
       }
 
+      let previousStock = 0;
+      let newStock = numAmount;
+
       if (targetBranchId) {
         const bsIdx = product.branchStocks.findIndex(bs => bs.branchId.toString() === targetBranchId.toString());
         if (bsIdx !== -1) {
+          previousStock = product.branchStocks[bsIdx].stock;
           product.branchStocks[bsIdx].stock += numAmount;
+          newStock = product.branchStocks[bsIdx].stock;
         } else {
           product.branchStocks.push({
             branchId: targetBranchId,
             stock: numAmount,
             lowStockThreshold: 10
           });
+          previousStock = 0;
+          newStock = numAmount;
         }
       } else {
-        product.stock = (product.stock || 0) + numAmount;
+        previousStock = product.stock || 0;
+        product.stock = previousStock + numAmount;
+        newStock = product.stock;
       }
 
       if (product.status !== 'Draft') {
         product.status = determineProductStatus(product.branchStocks, product.stock, product.lowStockThreshold);
       }
+
+      await product.save();
+
+      await InventoryLog.create({
+        product: product._id,
+        admin: req.admin._id,
+        branchId: targetBranchId || undefined,
+        changeAmount: numAmount,
+        previousStock,
+        newStock,
+        type: 'Addition',
+        reason: reason || 'Quick Restock via Dashboard/Alert'
+      });
     } else {
-      product.stock = (product.stock || 0) + numAmount;
+      const previousStock = product.stock || 0;
+      product.stock = previousStock + numAmount;
+      const newStock = product.stock;
+
       if (product.status !== 'Draft') {
         product.status = determineProductStatus([], product.stock, product.lowStockThreshold);
       }
+
+      await product.save();
+
+      await InventoryLog.create({
+        product: product._id,
+        admin: req.admin._id,
+        vendorId: product.vendor,
+        changeAmount: numAmount,
+        previousStock,
+        newStock,
+        type: 'Addition',
+        reason: reason || 'Quick Restock via Dashboard/Alert'
+      });
     }
 
-    await product.save();
-
-    await InventoryLog.create({
-      product: product._id,
-      admin: req.admin._id,
-      branchId: targetBranchId || undefined,
-      vendorId: product.vendor || undefined,
-      changeAmount: numAmount,
-      previousStock: 0,
-      newStock: numAmount,
-      type: 'Addition',
-      reason: reason || 'Quick Restock via Dashboard/Alert'
-    });
+    // Trigger back-in-stock notifications for waiting customers
+    try {
+      const { sendBackInStockNotifications } = await import('../services/backInStockService.js');
+      sendBackInStockNotifications().catch(e => console.warn('Back in stock notification warning:', e?.message));
+    } catch (e) {
+      // ignore
+    }
 
     // Real-time broadcast that product was restocked so toasts/badges update
     try {

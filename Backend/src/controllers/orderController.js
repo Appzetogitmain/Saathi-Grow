@@ -662,8 +662,10 @@ export const decrementStock = async (order) => {
 
           const currentStock = currentBS?.stock || 0;
           const isBranchOutOfStock = currentStock <= 0;
+          const hasVariants = updatedProduct.variants && updatedProduct.variants.length > 0;
+          const allVariantsOutOfStock = hasVariants && updatedProduct.variants.every(v => (v.stock || 0) <= 0);
 
-          if ((isBranchOutOfStock || isVariantOutOfStock) && updatedProduct.status !== 'Draft') {
+          if ((isBranchOutOfStock || allVariantsOutOfStock) && updatedProduct.status !== 'Draft') {
             updatedProduct.status = 'Out of Stock';
           }
           await updatedProduct.save();
@@ -765,8 +767,10 @@ export const decrementStock = async (order) => {
 
           const currentStock = updatedProduct.stock || 0;
           const isVendorOutOfStock = currentStock <= 0;
+          const hasVariants = updatedProduct.variants && updatedProduct.variants.length > 0;
+          const allVariantsOutOfStock = hasVariants && updatedProduct.variants.every(v => (v.stock || 0) <= 0);
 
-          if ((isVendorOutOfStock || isVariantOutOfStock) && updatedProduct.status !== 'Draft') {
+          if ((isVendorOutOfStock || allVariantsOutOfStock) && updatedProduct.status !== 'Draft') {
             updatedProduct.status = 'Out of Stock';
           }
           await updatedProduct.save();
