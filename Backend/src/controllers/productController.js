@@ -432,9 +432,29 @@ export const getProducts = async (req, res) => {
           query.$and.push({ $or: statusOr });
         }
       } else {
-        // For public users, even if they request 'Active', we show out of stock items
-        // to support the 'Out of Stock' display logic.
-        if (!req.admin && statusList.length === 1 && statusList[0] === 'Active') {
+        if (req.admin?.role === 'Admin' && statusList.includes('Out of Stock')) {
+          // Admin inventory status must reflect current quantities. The persisted
+          // Product.status can lag behind branch stock changes and is not enough
+          // to answer the global out-of-stock filter.
+          const statusOr = [
+            {
+              vendor: { $exists: true, $ne: null },
+              stock: { $lte: 0 }
+            },
+            {
+              $and: [
+                { $or: [{ vendor: null }, { vendor: { $exists: false } }] },
+                { $expr: { $lte: [{ $sum: { $ifNull: ['$branchStocks.stock', []] } }, 0] } }
+              ]
+            }
+          ];
+          const otherStatuses = statusList.filter(value => value !== 'Out of Stock');
+          if (otherStatuses.length > 0) statusOr.push({ status: { $in: otherStatuses } });
+          query.$and = query.$and || [];
+          query.$and.push({ $or: statusOr });
+        } else if (!req.admin && statusList.length === 1 && statusList[0] === 'Active') {
+          // For public users, even if they request 'Active', we show out of stock items
+          // to support the 'Out of Stock' display logic.
           query.status = { $in: ['Active', 'Out of Stock', 'Low Stock'] };
         } else {
           query.status = { $in: statusList };
@@ -2154,6 +2174,9 @@ export const getLowStockAlerts = async (req, res) => {
                 ]
               }
             },
+            ...(severity === 'Critical' && req.admin.role === 'Admin'
+              ? [{ $match: { $expr: { $lte: [{ $sum: { $ifNull: ['$branchStocks.stock', []] } }, 0] } } }]
+              : []),
             { $unwind: "$branchStocks" },
             { $addFields: { "branchStocks.branchId": { $toObjectId: "$branchStocks.branchId" } } },
             {
@@ -2283,6 +2306,16 @@ export const getLowStockAlerts = async (req, res) => {
           ]
         }
       });
+    }
+
+    // Critical dashboard/header alerts represent unavailable products, not
+    // branch rows. Count and display one product once even when it has several
+    // zero-stock branch records.
+    if (severity === 'Critical' && req.query.distinctProducts === 'true') {
+      pipeline.push(
+        { $group: { _id: '$productId', alert: { $first: '$$ROOT' } } },
+        { $replaceRoot: { newRoot: '$alert' } }
+      );
     }
 
     // Sort: Critical first, then stock ascending
