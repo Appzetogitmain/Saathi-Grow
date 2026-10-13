@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import * as api from '../../api/deliverySlotApi';
 import { showDeleteConfirmation } from '../../../../common/utils/alertUtils';
 import { getAdminSettings, updateAdminSettings } from '../../../../common/api/settingApi';
+import { formatTo12Hour } from '../../../../common/utils/formatUtils';
 
 const DeliverySlots = () => {
     const { t } = useTranslation('admin_delivery');
@@ -332,10 +333,10 @@ const DeliverySlots = () => {
                                     <tr key={slot._id} className="hover:bg-slate-50/30 transition-colors group">
                                         <td className="px-8 py-5 font-bold text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{slot.label}</td>
                                         <td className="px-6 py-5 text-center">
-                                            <span className="text-xs font-bold text-slate-600 bg-slate-50 px-2 py-1 rounded border border-slate-100">{slot.startTime}</span>
+                                            <span className="text-xs font-bold text-slate-600 bg-slate-50 px-2 py-1 rounded border border-slate-100">{formatTo12Hour(slot.startTime)}</span>
                                         </td>
                                         <td className="px-6 py-5 text-center">
-                                            <span className="text-xs font-bold text-slate-600 bg-slate-50 px-2 py-1 rounded border border-slate-100">{slot.endTime}</span>
+                                            <span className="text-xs font-bold text-slate-600 bg-slate-50 px-2 py-1 rounded border border-slate-100">{formatTo12Hour(slot.endTime)}</span>
                                         </td>
                                         <td className="px-6 py-5 text-center">
                                             <span className="text-xs font-bold text-slate-900">{slot.maxOrders}</span>

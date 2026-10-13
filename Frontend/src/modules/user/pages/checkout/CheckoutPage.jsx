@@ -32,6 +32,7 @@ import * as walletApi from '../../api/walletApi';
 import { fetchDeliverySlots, fetchAvailableDeliveryDays } from '../../api/orderApi';
 import { toast } from 'react-toastify';
 import { getPublicSettings } from '../../../../common/api/settingApi';
+import { formatTo12Hour } from '../../../../common/utils/formatUtils';
 
 const loadRazorpaySDK = () => {
     return new Promise((resolve) => {
@@ -895,7 +896,7 @@ const CheckoutPage = () => {
                                                     {slot.label}
                                                 </span>
                                                 <span className="text-[8px] font-bold text-gray-400 mt-0.5 tracking-tight">
-                                                    {slot.startTime} – {slot.endTime}
+                                                    {formatTo12Hour(slot.startTime)} - {formatTo12Hour(slot.endTime)}
                                                 </span>
                                             </div>
                                         );

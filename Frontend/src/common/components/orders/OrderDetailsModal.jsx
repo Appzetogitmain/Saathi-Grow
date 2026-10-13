@@ -7,6 +7,7 @@ import { useAdminAuth } from '../../../modules/admin/context/AdminAuthContext';
 import { useStoreManagerAuth } from '../../../modules/store-manager/context/StoreManagerAuthContext';
 import { useStaffAuth } from '../../../modules/staff/context/StaffAuthContext';
 import { toast } from 'react-toastify';
+import { formatTo12Hour } from '../../utils/formatUtils';
 
 const OrderDetailsModal = ({ show, onHide, order, onOrderUpdate }) => {
     const { t } = useTranslation(['admin_orders', 'common']);
@@ -282,7 +283,7 @@ const OrderDetailsModal = ({ show, onHide, order, onOrderUpdate }) => {
                                     </p>
                                     {!displayOrder.isImmediate && displayOrder.deliveryWindowSnapshot?.startTime && (
                                         <p className="text-xs text-slate-500 mt-1">
-                                            {displayOrder.deliveryWindowSnapshot.startTime} - {displayOrder.deliveryWindowSnapshot.endTime}
+                                            {formatTo12Hour(displayOrder.deliveryWindowSnapshot.startTime)} - {formatTo12Hour(displayOrder.deliveryWindowSnapshot.endTime)}
                                             {displayOrder.deliveryWindowSnapshot.scheduledDate ? ` on ${displayOrder.deliveryWindowSnapshot.scheduledDate}` : ''}
                                         </p>
                                     )}

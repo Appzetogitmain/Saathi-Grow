@@ -31,6 +31,24 @@ export const formatCompactNumber = (number) => {
     }).format(number);
 };
 
+/**
+ * Converts a 24-hour time string (e.g. "06:00", "18:30", "18:00:00") into a 12-hour AM/PM format (e.g. "6:00 AM", "6:30 PM").
+ * If the input doesn't match a time format or is invalid, returns the original input safely.
+ *
+ * @param {string} timeStr - Time string in HH:mm or HH:mm:ss
+ * @returns {string} Formatted 12-hour time string
+ */
+export const formatTo12Hour = (timeStr) => {
+    if (!timeStr || typeof timeStr !== 'string') return timeStr || '';
+    const match = timeStr.trim().match(/^([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
+    if (!match) return timeStr;
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    const period = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    return `${hours}:${minutes} ${period}`;
+};
+
 import { API_BASE_URL } from '../../config/apiConfig';
 
 // ─── Environment Detection ──────────────────────────────────────────────────

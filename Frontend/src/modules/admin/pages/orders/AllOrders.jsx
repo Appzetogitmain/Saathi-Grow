@@ -10,7 +10,7 @@ import Swal from 'sweetalert2';
 import { toast } from 'react-toastify';
 import PageInfoTooltip from '../../../../common/components/modals/PageInfoTooltip';
 import { pageInfoData } from '../../../../common/data/pageInfoData';
-import { downloadCSV } from '../../../../common/utils/formatUtils';
+import { downloadCSV, formatTo12Hour } from '../../../../common/utils/formatUtils';
 import { showDeleteConfirmation } from '../../../../common/utils/alertUtils';
 
 const OrderStatusBadge = ({ status, t }) => {
@@ -765,7 +765,7 @@ const AllOrders = () => {
                                             </div>
                                             {!order.isImmediate && (order.deliveryWindowSnapshot?.startTime || order.deliverySlotId?.startTime) && (
                                                 <div className="text-[10px] text-slate-400 mt-1">
-                                                    {order.deliveryWindowSnapshot?.startTime || order.deliverySlotId?.startTime} - {order.deliveryWindowSnapshot?.endTime || order.deliverySlotId?.endTime}
+                                                    {formatTo12Hour(order.deliveryWindowSnapshot?.startTime || order.deliverySlotId?.startTime)} - {formatTo12Hour(order.deliveryWindowSnapshot?.endTime || order.deliverySlotId?.endTime)}
                                                 </div>
                                             )}
                                         </td>

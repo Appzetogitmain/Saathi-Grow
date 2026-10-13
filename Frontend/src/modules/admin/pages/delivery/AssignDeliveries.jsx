@@ -34,6 +34,7 @@ import Swal from 'sweetalert2';
 import { useTranslation } from 'react-i18next';
 import PageInfoTooltip from '../../../../common/components/modals/PageInfoTooltip';
 import { pageInfoData } from '../../../../common/data/pageInfoData';
+import { formatTo12Hour } from '../../../../common/utils/formatUtils';
 
 const getTodayDeliveryDate = () => new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
@@ -272,7 +273,7 @@ const AssignDeliveries = () => {
                     {[
                         { title: "Immediate Priority", data: slotData.immediate, id: 'immediate', icon: <Zap size={18} className="text-amber-500" />, color: 'amber' },
                         ...slotData.slots.map(s => ({
-                            title: `${s.slot.label} (${s.slot.startTime} - ${s.slot.endTime})`,
+                            title: `${s.slot.label} (${formatTo12Hour(s.slot.startTime)} - ${formatTo12Hour(s.slot.endTime)})`,
                             data: s,
                             id: s.slot._id,
                             icon: <Clock size={18} className="text-blue-500" />,
