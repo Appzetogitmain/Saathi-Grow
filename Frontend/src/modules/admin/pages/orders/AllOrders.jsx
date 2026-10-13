@@ -31,6 +31,17 @@ const OrderStatusBadge = ({ status, t }) => {
     );
 };
 
+const STATUS_TABS = [
+    { key: '', label: 'All Orders', countKey: 'all', icon: null, activeClass: 'bg-slate-900 text-white border-slate-900 shadow-sm', badgeColor: 'bg-slate-100 text-slate-700', activeBadgeColor: 'bg-slate-800 text-white' },
+    { key: 'pending', label: 'Pending', countKey: 'pending', icon: '⏳', activeClass: 'bg-amber-500 text-white border-amber-500 shadow-sm', badgeColor: 'bg-amber-100 text-amber-800', activeBadgeColor: 'bg-amber-600 text-white' },
+    { key: 'confirmed', label: 'Confirmed', countKey: 'confirmed', icon: '✅', activeClass: 'bg-cyan-600 text-white border-cyan-600 shadow-sm', badgeColor: 'bg-cyan-100 text-cyan-800', activeBadgeColor: 'bg-cyan-700 text-white' },
+    { key: 'preparing', label: 'Preparing', countKey: 'preparing', icon: '👨‍🍳', activeClass: 'bg-blue-600 text-white border-blue-600 shadow-sm', badgeColor: 'bg-blue-100 text-blue-800', activeBadgeColor: 'bg-blue-700 text-white' },
+    { key: 'ready_for_pickup', label: 'Ready for Pickup', countKey: 'ready_for_pickup', icon: '📦', activeClass: 'bg-purple-600 text-white border-purple-600 shadow-sm', badgeColor: 'bg-purple-100 text-purple-800', activeBadgeColor: 'bg-purple-700 text-white' },
+    { key: 'out_for_delivery', label: 'Out for Delivery', countKey: 'out_for_delivery', icon: '🚚', activeClass: 'bg-indigo-600 text-white border-indigo-600 shadow-sm', badgeColor: 'bg-indigo-100 text-indigo-800', activeBadgeColor: 'bg-indigo-700 text-white' },
+    { key: 'delivered', label: 'Delivered', countKey: 'delivered', icon: '🎉', activeClass: 'bg-emerald-600 text-white border-emerald-600 shadow-sm', badgeColor: 'bg-emerald-100 text-emerald-800', activeBadgeColor: 'bg-emerald-700 text-white' },
+    { key: 'cancelled', label: 'Cancelled', countKey: 'cancelled', icon: '❌', activeClass: 'bg-rose-600 text-white border-rose-600 shadow-sm', badgeColor: 'bg-rose-100 text-rose-800', activeBadgeColor: 'bg-rose-700 text-white' }
+];
+
 const AllOrders = () => {
     const { t } = useTranslation(['admin_orders', 'common']);
     const [orders, setOrders] = useState([]);
@@ -209,6 +220,16 @@ const AllOrders = () => {
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
+    const [statusCounts, setStatusCounts] = useState({
+        all: 0,
+        pending: 0,
+        confirmed: 0,
+        preparing: 0,
+        ready_for_pickup: 0,
+        out_for_delivery: 0,
+        delivered: 0,
+        cancelled: 0
+    });
 
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -271,6 +292,9 @@ const AllOrders = () => {
             if (data && data.orders) {
                 setOrders(data.orders);
                 setPagination(data.pagination);
+                if (data.statusCounts) {
+                    setStatusCounts(data.statusCounts);
+                }
             } else if (Array.isArray(data)) {
                 setOrders(data);
                 setPagination({ total: data.length, totalPages: 1, limit, page: 1 });
@@ -591,6 +615,43 @@ const AllOrders = () => {
                     >
                         <Download size={16} /> {t('export')}
                     </button>
+                </div>
+            </div>
+
+            {/* Quick Status Tabs Bar */}
+            <div className="mb-6 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-hide">
+                <div className="flex items-center gap-2 min-w-max pb-1">
+                    {STATUS_TABS.map((tab) => {
+                        const isActive = (statusFilter || '') === tab.key;
+                        const count = statusCounts[tab.countKey] ?? (tab.key === '' ? pagination.total : 0);
+                        return (
+                            <button
+                                key={tab.key || 'all'}
+                                type="button"
+                                onClick={() => {
+                                    setStatusFilter(tab.key);
+                                    setPage(1);
+                                }}
+                                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-150 border select-none ${
+                                    isActive
+                                        ? tab.activeClass
+                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900 shadow-[0_1px_2px_rgba(0,0,0,0.03)]'
+                                }`}
+                            >
+                                {tab.icon && <span className="text-sm leading-none">{tab.icon}</span>}
+                                <span>{tab.key ? t(`filters.status.${tab.key}`, tab.label) : t('filters.status.all', 'All Orders')}</span>
+                                <span
+                                    className={`px-2 py-0.5 rounded-full text-[11px] font-bold transition-colors ${
+                                        isActive
+                                            ? tab.activeBadgeColor
+                                            : tab.badgeColor
+                                    }`}
+                                >
+                                    {count.toLocaleString('en-IN')}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 

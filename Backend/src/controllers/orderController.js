@@ -1899,8 +1899,12 @@ export const getAllOrdersAdmin = async (req, res) => {
     const limitNumber = parseInt(limit, 10);
     const skip = (pageNumber - 1) * limitNumber;
 
+    // Base count query for status breakdown across all tabs (independent of selected status tab)
+    const baseCountQuery = { ...query };
+    delete baseCountQuery.status;
+
     // Run paginated results, total count, AND full-dataset aggregate stats in parallel
-    const [orders, totalOrders, statsAgg] = await Promise.all([
+    const [orders, totalOrders, statsAgg, statusCountsAgg] = await Promise.all([
       Order.find(query)
         .select('orderId user posCustomer totalAmount status createdAt paymentMethod paymentStatus branchId vendor deliverySlot deliverySlotId deliveryWindowSnapshot isImmediate orderSource promoCode discountAmount freeGiftSnapshot items subTotal taxAmount deliveryFee immediateDeliveryFee baseDeliveryFee handlingFee deliveryInstructions')
         .populate('user', 'name email phone')
@@ -1927,10 +1931,41 @@ export const getAllOrdersAdmin = async (req, res) => {
             }
           }
         }
+      ]),
+      // Aggregate status counts across dataset (ignoring status filter so all tabs retain accurate counts)
+      Order.aggregate([
+        { $match: baseCountQuery },
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 }
+          }
+        }
       ])
     ]);
 
     const aggResult = statsAgg[0] || {};
+
+    const statusCounts = {
+      all: 0,
+      pending: 0,
+      confirmed: 0,
+      preparing: 0,
+      ready_for_pickup: 0,
+      out_for_delivery: 0,
+      delivered: 0,
+      cancelled: 0,
+      return_requested: 0,
+      returned: 0
+    };
+    let totalAllStatuses = 0;
+    (statusCountsAgg || []).forEach(item => {
+      if (item && item._id) {
+        statusCounts[item._id] = item.count || 0;
+      }
+      totalAllStatuses += item?.count || 0;
+    });
+    statusCounts.all = totalAllStatuses;
 
     res.json({
       orders,
@@ -1945,7 +1980,8 @@ export const getAllOrdersAdmin = async (req, res) => {
         totalPaid: aggResult.totalPaid || 0,
         totalPendingPayment: aggResult.totalPendingPayment || 0,
         totalRevenue: parseFloat((aggResult.totalRevenue || 0).toFixed(2))
-      }
+      },
+      statusCounts
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
