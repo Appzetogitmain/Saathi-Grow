@@ -7,11 +7,19 @@ import { toast } from 'react-toastify';
 import PolicyViewerModal from '../../../../common/components/legal/PolicyViewerModal';
 import { useLocation } from '../../context/LocationContext';
 import { getStoredReferralCode } from '../../utils/referralUtils';
+import ReferralCodeInput from './ReferralCodeInput';
+import { useShop } from '../../context/ShopContext';
 
 const LoginModal = () => {
     const navigate = useNavigate();
     const { showLoginModal, closeLoginModal, verifyOtp } = useAuth();
     const { location, openLocationModal } = useLocation();
+    const { settings } = useShop();
+    const [referralCode, setReferralCode] = useState(() => getStoredReferralCode() || '');
+
+    useEffect(() => {
+        if (showLoginModal) setReferralCode(getStoredReferralCode() || '');
+    }, [showLoginModal]);
 
     const [phoneNumber, setPhoneNumber] = useState('');
     const [otp, setOtp] = useState('');
@@ -65,11 +73,10 @@ const LoginModal = () => {
 
         setLoading(true);
         try {
-            const referralCode = getStoredReferralCode();
             const result = await verifyOtp({
                 phone: phoneNumber,
                 otp,
-                referralCode: referralCode || undefined
+                referralCode: settings?.referral?.isEnabled === false ? undefined : referralCode || undefined
             });
 
             if (result.success) {
@@ -117,7 +124,7 @@ const LoginModal = () => {
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-white/30 dark:bg-black/50 backdrop-blur-sm transition-opacity" onClick={handleClose} />
-            <div className="bg-white dark:bg-[#121212] border dark:border-white/5 rounded-3xl shadow-2xl w-full max-w-sm relative z-10 overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-white dark:bg-[#121212] border dark:border-white/5 rounded-3xl shadow-2xl w-full max-w-sm max-h-[calc(100dvh-2rem)] relative z-10 overflow-x-hidden overflow-y-auto animate-in zoom-in-95 duration-200">
                 <button
                     onClick={handleClose}
                     className="absolute top-4 right-4 p-2 bg-gray-100 dark:bg-white/5 rounded-full hover:bg-gray-200 dark:hover:bg-white/10 transition-colors z-20"
@@ -162,6 +169,7 @@ const LoginModal = () => {
                                 </div>
                             </div>
 
+                            {settings?.referral?.isEnabled !== false && <ReferralCodeInput value={referralCode} onChange={setReferralCode} disabled={loading} />}
                             <button
                                 type="submit"
                                 disabled={loading || phoneNumber.length !== 10}

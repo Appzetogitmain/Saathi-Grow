@@ -6,11 +6,19 @@ import * as authApi from '../../api/userAuthApi';
 import { toast } from 'react-toastify';
 import { captureReferralFromUrl, getStoredReferralCode } from '../../utils/referralUtils';
 import PolicyViewerModal from '../../../../common/components/legal/PolicyViewerModal';
+import ReferralCodeInput from '../../components/auth/ReferralCodeInput';
+import { useShop } from '../../context/ShopContext';
 
 const LoginPage = () => {
     const { user, token, verifyOtp, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const { settings } = useShop();
+    // Protected /register links redirect to login with the original URL in router state.
+    const referralSearch = new URLSearchParams(location.search).has('ref')
+        ? location.search : location.state?.from?.search || location.search;
+    const [referralCode, setReferralCode] = useState(() =>
+        new URLSearchParams(referralSearch).get('ref')?.trim().toUpperCase() || getStoredReferralCode() || '');
 
     // Destination handling
     const queryParams = new URLSearchParams(location.search);
@@ -37,8 +45,9 @@ const LoginPage = () => {
 
     // Capture any referral code present in query parameters
     useEffect(() => {
-        captureReferralFromUrl(location.search);
-    }, [location.search]);
+        captureReferralFromUrl(referralSearch);
+        if (new URLSearchParams(referralSearch).has('ref')) setReferralCode(getStoredReferralCode() || '');
+    }, [referralSearch]);
 
     // If already authenticated, redirect appropriately
     useEffect(() => {
@@ -107,11 +116,10 @@ const LoginPage = () => {
 
         setIsSubmitting(true);
         try {
-            const referralCode = getStoredReferralCode();
             const result = await verifyOtp({
                 phone: phoneNumber,
                 otp,
-                referralCode: referralCode || undefined
+                referralCode: settings?.referral?.isEnabled === false ? undefined : referralCode || undefined
             });
 
             if (result.success) {
@@ -215,6 +223,7 @@ const LoginPage = () => {
                                 </div>
                             </div>
 
+                            {settings?.referral?.isEnabled !== false && <ReferralCodeInput value={referralCode} onChange={setReferralCode} disabled={isSubmitting} />}
                             <button
                                 type="submit"
                                 disabled={phoneNumber.length !== 10 || isSubmitting}

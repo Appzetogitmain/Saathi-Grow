@@ -16,7 +16,8 @@
     "test": "node --test test/*.test.js",
     "audit:wallet-topups": "node scripts/audit-wallet-topups.mjs",
     "migrate:payment-indexes": "node scripts/create-payment-security-indexes.mjs",
-    "migrate:registration-flag": "node scripts/migrate-registration-flag.mjs"
+    "migrate:registration-flag": "node scripts/migrate-registration-flag.mjs",
+    "migrate:referrals": "node scripts/migrate-referrals.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

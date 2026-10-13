@@ -3,11 +3,15 @@ import Complaint from '../models/Complaint.js';
 import OfferDeal from '../models/OfferDeal.js';
 import { notifyAdmins, sendPushNotification, notifyByBranchAndPermission } from './notificationService.js';
 import { sendBackInStockNotifications } from './backInStockService.js';
+import { retryPendingReferrals } from './referralService.js';
 
 /**
  * Initialize all cron jobs
  */
 export const initCronJobs = () => {
+  cron.schedule('* * * * *', () => retryPendingReferrals().catch(error => {
+    console.error('[CRON-ERROR] Referral recovery failed:', error);
+  }));
   cron.schedule('* * * * *', () => sendBackInStockNotifications().catch(error => {
     console.error('[CRON-ERROR] Back-in-stock check failed:', error);
   }));

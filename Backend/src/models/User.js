@@ -129,6 +129,11 @@ const userSchema = new mongoose.Schema({
         ref: 'User',
         default: null
     },
+    // Retain attribution details even if referral bookkeeping temporarily fails.
+    signupReferralCode: { type: String, default: '', uppercase: true, trim: true },
+    referralRecoveryPending: { type: Boolean, default: false },
+    // Transaction write conflict serializes referral payouts/cap checks per referrer.
+    referralRewardRevision: { type: Number, default: 0, select: false },
     fcmToken: {
         app: {
             type: String,
@@ -145,6 +150,7 @@ const userSchema = new mongoose.Schema({
 
 // Index for geospatial queries tracking addresses
 userSchema.index({ "addresses.location": "2dsphere" });
+userSchema.index({ referralRecoveryPending: 1, updatedAt: 1 });
 
 const User = mongoose.model('User', userSchema);
 export default User;

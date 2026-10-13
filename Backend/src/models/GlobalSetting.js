@@ -42,7 +42,35 @@ const globalSettingSchema = new mongoose.Schema({
     date: { type: String, required: true, trim: true },
     name: { type: String, required: true, trim: true },
     reason: { type: String, default: '', trim: true }
-  }]
+  }],
+
+  // Refer & Earn Dynamic Settings
+  referral: {
+    isEnabled: { type: Boolean, default: true },
+    rewardTrigger: {
+      type: String,
+      enum: ['first_order_delivered', 'registration'],
+      default: 'first_order_delivered'
+    },
+    referrerRewardAmount: { type: Number, default: 50, min: 0 },
+    refereeRewardAmount: { type: Number, default: 25, min: 0 },
+    minOrderValue: { type: Number, default: 199, min: 0 },
+    maxReferralsPerUser: { type: Number, default: 50, min: 0 },
+    headline: { type: String, default: 'Invite Friends & Earn Rewards!' },
+    description: {
+      type: String,
+      default: 'Share your referral code with friends. When they place their first order, both of you earn wallet cashback!'
+    },
+    terms: {
+      type: [String],
+      default: [
+        'Share your referral code or link with friends.',
+        'Friend must sign up using your code.',
+        'Friend completes their first order meeting the minimum order value.',
+        'Both wallets are credited automatically upon successful delivery!'
+      ]
+    }
+  }
 }, {
   timestamps: true
 });

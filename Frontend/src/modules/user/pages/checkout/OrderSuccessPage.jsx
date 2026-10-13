@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { CheckCircle, Sparkles, Map } from 'lucide-react';
+import { CheckCircle, Sparkles, Map, Gift, ChevronRight } from 'lucide-react';
+import { useShop } from '../../context/ShopContext';
 
 // Premium Particle Burst Component
 const CelebrationBurst = () => {
@@ -41,6 +42,7 @@ const CelebrationBurst = () => {
 const OrderSuccessPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { settings } = useShop();
     const orderId = location.state?.orderId;
 
     useEffect(() => {
@@ -84,6 +86,22 @@ const OrderSuccessPage = () => {
                     >
                         Back to Home
                     </button>
+
+                    {settings?.referral?.isEnabled === true && <button
+                        onClick={() => navigate('/profile/refer-earn')}
+                        className="w-full mt-1 p-3 rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border border-green-200/60 dark:border-green-800/30 flex items-center justify-between text-left active:scale-95 transition-all shadow-sm"
+                    >
+                        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-full bg-[#0c831f] text-white flex items-center justify-center shadow-sm shrink-0">
+                                <Gift size={15} />
+                            </div>
+                            <div className="min-w-0 break-words">
+                                <p className="text-[11px] font-black text-gray-900 dark:text-white leading-tight">Refer Friends & Earn</p>
+                                <p className="text-[9px] text-[#0c831f] font-bold">{settings.referral.rewardTrigger === 'registration' ? 'Earn wallet cashback when they sign up' : 'Earn cashback after their first qualifying delivery'}</p>
+                            </div>
+                        </div>
+                        <ChevronRight size={14} className="shrink-0 text-[#0c831f]" />
+                    </button>}
                 </div>
             </div>
             <style>{`

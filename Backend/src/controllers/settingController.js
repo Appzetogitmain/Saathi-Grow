@@ -1,4 +1,5 @@
 import GlobalSetting from '../models/GlobalSetting.js';
+import { buildReferralSettings } from '../utils/referralSettings.js';
 
 // @desc    Get Global Settings
 // @route   GET /api/admin/settings
@@ -87,13 +88,14 @@ export const getPublicSettings = async (req, res) => {
       appStoreUrl: settings.appStoreUrl,
       offerStripText: settings.offerStripText,
       isOfferStripEnabled: settings.isOfferStripEnabled,
-      holidays: Array.isArray(settings.holidays)
+        holidays: Array.isArray(settings.holidays)
         ? settings.holidays.map(h => ({
             date: h.date,
             name: h.name,
             reason: h.reason || ''
           }))
-        : []
+        : [],
+      referral: buildReferralSettings(settings)
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching public settings', error: error.message });

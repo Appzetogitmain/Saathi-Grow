@@ -7,6 +7,7 @@ import Order from '../models/Order.js';
 import { sendPushNotification } from '../services/notificationService.js';
 import { sendWelcomeEmail } from '../services/emailService.js';
 import { ensureUserReferralCode } from '../utils/generateReferralCode.js';
+import { recoverUserReferral, getActiveReferralSettings } from '../services/referralService.js';
 import validator from 'validator';
 // @desc    Request OTP for Login/Register
 // @route   POST /api/auth/request-otp
@@ -127,10 +128,14 @@ export const verifyOTP = async (req, res) => {
 
       let referredBy = null;
       if (incomingReferral && String(incomingReferral).trim()) {
-        const referrer = await User.findOne({
-          referralCode: String(incomingReferral).trim().toUpperCase()
-        }).select('_id');
-        if (referrer) {
+        const settings = await getActiveReferralSettings();
+        if (settings.isEnabled) {
+          const referrer = await User.findOne({
+            referralCode: String(incomingReferral).trim().toUpperCase(), isActive: { $ne: false }
+          }).select('_id');
+          if (!referrer) {
+            return res.status(400).json({ message: 'Invalid referral code. Check the code or remove it to continue.' });
+          }
           referredBy = referrer._id;
         }
       }
@@ -142,12 +147,24 @@ export const verifyOTP = async (req, res) => {
         email: email || undefined,
         isActive: true,
         isRegistrationComplete: false,
-        referredBy
+        referredBy,
+        signupReferralCode: referredBy ? String(incomingReferral).trim().toUpperCase() : '',
+        referralRecoveryPending: Boolean(referredBy)
       });
       isNewUser = true;
       await user.save();
       await ensureUserReferralCode(user);
       await Otp.deleteOne({ phone });
+
+    }
+
+    if (user.referredBy) {
+      try {
+        await recoverUserReferral(user);
+        // Registration rewards update the database wallet, not the original user document.
+        const wallet = await User.findById(user._id).select('walletBalance');
+        if (wallet) user.walletBalance = wallet.walletBalance;
+      } catch (error) { console.error('[REFERRAL_LOGIN_RECOVERY_ERROR]', error); }
     }
 
     const isRegistrationComplete = user.isRegistrationComplete ?? true;

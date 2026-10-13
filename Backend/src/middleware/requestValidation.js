@@ -40,6 +40,13 @@ export const validateUserOtpVerifyPayload = (req, res, next) => {
     return sendError(req, res, 400, 'Please provide a valid OTP');
   }
 
+  if (req.body?.referralCode !== undefined && req.body.referralCode !== null) {
+    if (typeof req.body.referralCode !== 'string' || (req.body.referralCode.trim() && !/^[A-Za-z0-9]{1,32}$/.test(req.body.referralCode.trim()))) {
+      return sendError(req, res, 400, 'Please provide a valid referral code');
+    }
+    req.body.referralCode = req.body.referralCode.trim().toUpperCase() || undefined;
+  }
+
   if (typeof req.body?.name === 'string') {
     req.body.name = req.body.name.trim().slice(0, 80);
   }

@@ -71,9 +71,8 @@ export const AuthProvider = ({ children }) => {
             setUser(userWithToken);
             setToken(data.token);
             setShowLoginModal(false);
-            if (data.isNewUser) {
-                clearStoredReferralCode();
-            } else {
+            clearStoredReferralCode();
+            if (!data.isNewUser) {
                 toast.success('Logged in successfully!');
             }
             return {

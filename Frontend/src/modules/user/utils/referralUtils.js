@@ -1,12 +1,22 @@
 const REFERRAL_STORAGE_KEY = 'saathigro_referral_code';
 
+export const normalizeReferralCode = (value = '') => String(value).trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 32);
+
+export const storeReferralCode = (value) => {
+  try {
+    const code = normalizeReferralCode(value);
+    if (code) localStorage.setItem(REFERRAL_STORAGE_KEY, code);
+    else localStorage.removeItem(REFERRAL_STORAGE_KEY);
+  } catch { /* Storage may be unavailable. */ }
+};
+
 /**
  * Persist referral code from URL (?ref=) so it survives until registration.
  */
 export const captureReferralFromUrl = (search = window.location.search) => {
   try {
     const params = new URLSearchParams(search);
-    const ref = (params.get('ref') || '').trim().toUpperCase();
+    const ref = normalizeReferralCode(params.get('ref') || '');
     if (ref) {
       localStorage.setItem(REFERRAL_STORAGE_KEY, ref);
     }
@@ -42,11 +52,11 @@ export const buildReferralShareLink = (referralCode) => {
 const getConfiguredStoreUrls = (settings = {}) => ({
   playStoreUrl:
     settings.playStoreUrl ||
-    import.meta.env.VITE_PLAY_STORE_URL ||
+    import.meta.env?.VITE_PLAY_STORE_URL ||
     '',
   appStoreUrl:
     settings.appStoreUrl ||
-    import.meta.env.VITE_APP_STORE_URL ||
+    import.meta.env?.VITE_APP_STORE_URL ||
     ''
 });
 
@@ -78,13 +88,18 @@ export const buildReferralSharePayload = (referralCode, settings = {}) => {
   const playStoreLink = withReferralOnStoreUrl(playStoreUrl, referralCode, 'android');
   const appStoreLink = withReferralOnStoreUrl(appStoreUrl, referralCode, 'ios');
 
+  const refereeBonus = settings.isEnabled !== false && settings.refereeRewardAmount
+    ? settings.rewardTrigger === 'registration'
+      ? ` and get ₹${settings.refereeRewardAmount} welcome cashback when you sign up using my code`
+      : ` and get ₹${settings.refereeRewardAmount} welcome cashback after your first order of ₹${settings.minOrderValue ?? 199} or more is delivered`
+    : '';
   const lines = [
-    'Join me on Saathigro for fresh groceries!',
+    `Join me on Saathigro for fresh groceries${refereeBonus}!`,
     '',
-    `Referral code: ${referralCode}`,
-    '',
-    'Download the app:'
+    `Referral code: ${referralCode}`
   ];
+
+  if (playStoreLink || appStoreLink) lines.push('', 'Download the app:');
 
   if (playStoreLink) {
     lines.push(`Android (Play Store): ${playStoreLink}`);
@@ -92,10 +107,6 @@ export const buildReferralSharePayload = (referralCode, settings = {}) => {
   if (appStoreLink) {
     lines.push(`iOS (App Store): ${appStoreLink}`);
   }
-  if (!playStoreLink && !appStoreLink) {
-    lines.push('(App store links will appear once configured by admin)');
-  }
-
   lines.push('', `Or open on web: ${webLink}`);
 
   return {
@@ -104,5 +115,19 @@ export const buildReferralSharePayload = (referralCode, settings = {}) => {
     playStoreLink,
     appStoreLink,
     shareText: lines.join('\n')
+  };
+};
+
+export const getReferralProgramCopy = (settings = {}) => {
+  const onSignup = settings.rewardTrigger === 'registration';
+  return {
+    stepTitle: onSignup ? 'Friend signs up with your code' : 'Friend completes their first delivery',
+    stepDescription: onSignup
+      ? 'Your friend creates a new account using your code. No order is required.'
+      : `Your friend's first delivered order must total ₹${settings.minOrderValue ?? 199} or more, including fees and taxes after discounts. A below-minimum first delivery is ineligible.`,
+    payoutDescription: onSignup
+      ? `When they sign up, you get ₹${settings.referrerRewardAmount} and your friend gets ₹${settings.refereeRewardAmount} in their wallet.`
+      : `After their qualifying first delivery, you get ₹${settings.referrerRewardAmount} and your friend gets ₹${settings.refereeRewardAmount} in their wallet.`,
+    capDescription: settings.maxReferralsPerUser > 0 ? `You can earn rewards for up to ${settings.maxReferralsPerUser} friends.` : 'There is no limit on rewarded referrals.'
   };
 };

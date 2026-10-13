@@ -69,6 +69,7 @@ import AdminProfile from '../pages/settings/AdminProfile';
 
 import BillingSettings from '../pages/settings/BillingSettings';
 import AppSettings from '../pages/settings/AppSettings';
+import ReferralManagement from '../pages/settings/ReferralManagement';
 import SocialProfile from '../pages/settings/SocialProfile';
 import AllStaff from '../pages/staff/AllStaff';
 import AddStaff from '../pages/staff/AddStaff';
@@ -262,6 +263,7 @@ const AdminRoutes = () => {
 
                         <Route path="settings/billing" element={<BillingSettings />} />
                         <Route path="settings/app" element={<AppSettings />} />
+                        <Route path="settings/referrals" element={<ReferralManagement />} />
                         <Route path="settings/social" element={<SocialProfile />} />
 
                         {/* Fallback for all other sub-routes defined in sidebar */}

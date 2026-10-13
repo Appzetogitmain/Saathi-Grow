@@ -11,6 +11,7 @@ import CashCollection from '../models/CashCollection.js';
 import { findOptimalSource } from '../services/locationService.js';
 import { creditVendorWallet, debitVendorWallet, creditAdminWallet, debitAdminWallet } from './orderController.js';
 import { sendPushNotification, notifyByBranchAndPermission } from '../services/notificationService.js';
+import { processOrderDeliveryReferral } from '../services/referralService.js';
 
 // @desc    Get delivery partner profile
 // @route   GET /api/delivery/profile
@@ -242,6 +243,8 @@ export const updateDeliveryStatus = async (req, res) => {
                     stop.status = 'delivered';
                     stop.deliveredAt = Date.now();
                     order.status = 'delivered';
+                    order.deliveryTimestamps ||= {};
+                    order.deliveryTimestamps.deliveredAt ||= new Date();
                     if (order.paymentMethod === 'cod') {
                         order.paymentStatus = 'paid';
                     }
@@ -266,6 +269,12 @@ export const updateDeliveryStatus = async (req, res) => {
                         await creditAdminWallet(order);
                     } else if (order.branchId) {
                         await creditAdminWallet(order);
+                    }
+
+                    try {
+                        await processOrderDeliveryReferral(order);
+                    } catch (refErr) {
+                        console.error('[REFERRAL_DELIVERY_STOP_ERR]', refErr);
                     }
 
                     if (order.paymentMethod?.toLowerCase() === 'cod') {

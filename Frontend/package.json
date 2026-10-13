@@ -9,6 +9,7 @@
     "check:build": "vite build",
     "ci:check": "npm run check:build",
     "lint": "eslint .",
+    "test": "node --test test/*.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

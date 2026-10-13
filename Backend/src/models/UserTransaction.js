@@ -17,7 +17,7 @@ const userTransactionSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['topup', 'order_payment', 'order_refund', 'adjustment'],
+    enum: ['topup', 'order_payment', 'order_refund', 'adjustment', 'referral_reward'],
     required: true
   },
   status: {
@@ -41,7 +41,9 @@ const userTransactionSchema = new mongoose.Schema({
   razorpayPaymentId: {
     type: String,
     default: null
-  }
+  },
+  referralId: { type: mongoose.Schema.Types.ObjectId, ref: 'Referral' },
+  referralRole: { type: String, enum: ['referrer', 'referee'] }
 }, {
   timestamps: true
 });
@@ -58,6 +60,10 @@ userTransactionSchema.index(
 );
 
 userTransactionSchema.index({ user: 1, createdAt: -1 });
+userTransactionSchema.index({ referralId: 1, referralRole: 1 }, {
+  unique: true,
+  partialFilterExpression: { category: 'referral_reward', referralId: { $type: 'objectId' } }
+});
 
 const UserTransaction = mongoose.model('UserTransaction', userTransactionSchema);
 export default UserTransaction;

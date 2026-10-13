@@ -1,5 +1,5 @@
 import React, {useRef , useState, useEffect}from 'react';
-import { User, Mail, Phone, MapPin, Camera, ArrowLeft, ChevronRight, ShoppingBag, CreditCard, LogOut, Shield, Moon, Sun, Bell, HelpCircle, Heart, MessageCircle, Tag, BellRing, Edit2, X, Loader2, Share2, Copy, Check, Send } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Camera, ArrowLeft, ChevronRight, ShoppingBag, CreditCard, LogOut, Shield, Moon, Sun, Bell, HelpCircle, Heart, MessageCircle, Tag, BellRing, Edit2, X, Loader2, Share2, Copy, Check, Send, Gift } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -318,7 +318,7 @@ const ProfilePage = () => {
         { icon: MapPin, label: "Saved Addresses", subtitle: "Manage your delivery locations", path: "/saved-addresses" },
         { icon: Heart, label: "My Wishlist", subtitle: "Your favorite items", path: "/wishlist" },
         { icon: CreditCard, label: "saathigro Wallet", subtitle: `₹${Number(user?.walletBalance || 0).toFixed(2)} Balance available`, path: "/wallet" },
-        { icon: Share2, label: "Invite & Share App", subtitle: "Share your referral link with friends", action: "share" },
+        ...(appSettings?.referral?.isEnabled === true ? [{ icon: Gift, label: "Refer & Earn", subtitle: "Invite friends & earn wallet cashback", path: "/profile/refer-earn" }] : []),
         { icon: HelpCircle, label: "FAQs & Help Center", subtitle: "Find answers and guides", path: "/help" },
         { icon: MessageCircle, label: "Raise a Complaint", subtitle: "Raise a ticket for any issue", path: "/support/raise-ticket" },
         { icon: Shield, label: "Legal & Policies", subtitle: "Terms, Privacy and more", path: "/settings" }

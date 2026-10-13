@@ -184,6 +184,8 @@ import adminCategoryPageRoutes from './routes/adminCategoryPageRoutes.js';
 import physicalLocationRoutes from './routes/physicalLocationRoutes.js';
 import ogRoutes from './routes/ogRoutes.js';
 import searchLogRoutes from './routes/searchLogRoutes.js';
+import adminReferralRoutes from './routes/adminReferralRoutes.js';
+import userReferralRoutes from './routes/userReferralRoutes.js';
 import { protect, protectAdmin, protectVendor, protectDeliveryPartner } from './middleware/authMiddleware.js';
 
 
@@ -213,6 +215,8 @@ app.use('/api/promocodes', promoCodeRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin/reports', reportRoutes);
 app.use('/api/admin/search-logs', searchLogRoutes);
+app.use('/api/admin/referrals', adminReferralRoutes);
+app.use('/api/referrals', userReferralRoutes);
 app.use('/api/reviews', reviewRoutes);
 
 // User Profile/Front-End Routes

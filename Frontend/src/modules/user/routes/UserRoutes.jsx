@@ -62,6 +62,7 @@ const AddressFormPage = lazy(() => import('../pages/profile/AddressFormPage'));
 const WalletPage = lazy(() => import('../pages/profile/WalletPage'));
 const AddMoneyPage = lazy(() => import('../pages/profile/AddMoneyPage'));
 const WishlistPage = lazy(() => import('../pages/profile/WishlistPage'));
+const ReferAndEarnPage = lazy(() => import('../pages/profile/ReferAndEarnPage'));
 const OrderSuccessPage = lazy(() => import('../pages/checkout/OrderSuccessPage'));
 const OfferPage = lazy(() => import('../pages/offer/OfferPage'));
 const LogoutConfirmationPage = lazy(() => import('../pages/auth/LogoutConfirmationPage'));
@@ -478,6 +479,8 @@ const UserRoutes = () => {
 
                         {/* Profile */}
                         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                        <Route path="/profile/refer-earn" element={<ProtectedRoute><ReferAndEarnPage /></ProtectedRoute>} />
+                        <Route path="/refer-earn" element={<ProtectedRoute><ReferAndEarnPage /></ProtectedRoute>} />
                         <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
                         <Route path="/wallet/add-money" element={<ProtectedRoute><AddMoneyPage /></ProtectedRoute>} />
                         <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />

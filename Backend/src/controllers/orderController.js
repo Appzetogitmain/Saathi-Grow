@@ -29,6 +29,7 @@ import razorpayInstance, {
 } from '../services/razorpayVerificationService.js';
 import { validateAndBuildDeliveryTiming } from '../services/deliveryTimingService.js';
 import { assertPartnerCapacity } from '../services/deliveryCapacityService.js';
+import { processOrderDeliveryReferral } from '../services/referralService.js';
 // import { triggerAutoAssignmentForOrder } from './adminDeliveryController.js';
 
 /**
@@ -2008,6 +2009,8 @@ export const updateOrderStatus = async (req, res) => {
     order.status = status;
     if (status === 'delivered') {
       order.paymentStatus = 'paid';
+      order.deliveryTimestamps ||= {};
+      order.deliveryTimestamps.deliveredAt ||= new Date();
     }
 
     // Refund logic for User if status becomes 'returned' or 'cancelled' and it was paid
@@ -2049,6 +2052,11 @@ export const updateOrderStatus = async (req, res) => {
     if (status === 'delivered') {
       await creditVendorWallet(updatedOrder);
       await creditAdminWallet(updatedOrder);
+      try {
+        await processOrderDeliveryReferral(updatedOrder);
+      } catch (refErr) {
+        console.error('[REFERRAL_ORDER_DELIVERY_ERR]', refErr);
+      }
     }
 
     if (status === 'returned') {

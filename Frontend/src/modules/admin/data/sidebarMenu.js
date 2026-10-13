@@ -193,6 +193,7 @@ export const adminSidebarMenu = [
             { title: 'Admin Profile', key: 'admin_profile', path: '/admin/settings/profile' },
             { title: 'Tax & Billing Settings', key: 'tax_billing_settings', path: '/admin/settings/billing' },
             { title: 'App Settings', key: 'app_settings', path: '/admin/settings/app' },
+            { title: 'Refer & Earn', key: 'referral_settings', path: '/admin/settings/referrals' },
             { title: 'Social Profile', key: 'social_profile', path: '/admin/settings/social' },
         ],
     },
