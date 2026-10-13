@@ -9,6 +9,7 @@ import { getCategories } from '../../api/categoryApi';
 import { getProducts } from '../../api/productApi';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { showDeleteConfirmation } from '../../../../common/utils/alertUtils';
+import { canAttachPopup } from '../../utils/appPopupUtils';
 
 const PushNotifications = () => {
     const { t } = useTranslation('admin_notifications');
@@ -24,6 +25,7 @@ const PushNotifications = () => {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(false);
     const [dispatching, setDispatching] = useState(false);
+    const [setAsAppPopup, setSetAsAppPopup] = useState(false);
 
     // Destination / Click Action state
     const [clickActionType, setClickActionType] = useState('home'); // 'home' | 'product' | 'category' | 'custom'
@@ -198,11 +200,12 @@ const PushNotifications = () => {
                 customLink: clickActionType === 'custom' ? customLink.trim() : undefined,
                 imageUrl: imageUrl.trim(),
                 imageFile,
+                setAsAppPopup: canAttachPopup(adminUser, targetType, selectedGroup) && setAsAppPopup,
             };
 
             const res = await sendNotification(adminUser.token, payload);
             if (res.success) {
-                toast.success(t('push.dispatch_success'));
+                toast.success(res.appPopupPublished ? 'Notification sent and app popup published' : t('push.dispatch_success'));
                 setTitle('');
                 setMessage('');
                 setImageUrl('');
@@ -213,6 +216,7 @@ const PushNotifications = () => {
                 setSelectedProduct(null);
                 setProductSearch('');
                 setCustomLink('');
+                setSetAsAppPopup(false);
                 fetchHistory(1);
             }
         } catch (error) {
@@ -549,6 +553,21 @@ const PushNotifications = () => {
                                     )}
                                     <p className="text-[10px] text-slate-400">Upload an image or enter a public HTTPS URL. Leave both empty for a text-only notification.</p>
                                 </div>
+                                {canAttachPopup(adminUser, targetType, selectedGroup) && (
+                                    <div className="bg-amber-50/70 border border-amber-200/70 rounded-xl p-3 flex items-start gap-2.5">
+                                        <input
+                                            type="checkbox"
+                                            id="setAsAppPopup"
+                                            checked={setAsAppPopup}
+                                            onChange={(e) => setSetAsAppPopup(e.target.checked)}
+                                            className="mt-0.5 rounded border-amber-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                        />
+                                        <label htmlFor="setAsAppPopup" className="text-xs text-slate-700 cursor-pointer select-none">
+                                            <strong className="font-bold text-slate-800 block">Also set as active App-Open Festival Popup</strong>
+                                            <span className="text-[11px] text-slate-500">When checked, any customer opening the app or website will see this announcement card popup with a close (X) button.</span>
+                                        </label>
+                                    </div>
+                                )}
                                 <button
                                     onClick={handleSend}
                                     disabled={dispatching}

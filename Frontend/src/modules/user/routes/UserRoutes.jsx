@@ -13,10 +13,13 @@ import FloatingCartStrip from '../components/cart/FloatingCartStrip';
 import MobileFooter from '../components/layout/MobileFooter';
 import SearchOverlay from '../components/search/SearchOverlay';
 import AppDownloadPrompt from '../components/app-download/AppDownloadPrompt';
+import AppOpenPopup from '../components/home/AppOpenPopup';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation as useUserLocation } from '../context/LocationContext';
 import { ShopProvider, useShop, useShopUI } from '../context/ShopContext';
 import { useStore } from '../context/StoreContext';
+import { useSearch } from '../context/SearchContext';
+import { useCart } from '../context/CartContext';
 // import StoreSelector from '../components/location/StoreSelector';
 
 import PullToRefresh from '../../../common/components/PullToRefresh';
@@ -184,10 +187,13 @@ const UserLayout = () => {
         }
     }
 
-    const { token, isWebView, loading, refreshProfile } = useAuth();
+    const { token, isWebView, loading, refreshProfile, showLoginModal } = useAuth();
     const { refreshShopData } = useShop();
     const { activeStore, isStoreOutOfRange, isStoreInactive, loading: storeLoading } = useStore();
-    const { location: userLocation, openLocationModal } = useUserLocation();
+    const { location: userLocation, openLocationModal, showLocationModal, showPermissionModal } = useUserLocation();
+    const { isSearchOverlayOpen } = useSearch();
+    const { isCartOpen } = useCart();
+    const promotionsBlocked = Boolean(loading || storeLoading || showLoginModal || showLocationModal || showPermissionModal || isSearchOverlayOpen || isCartOpen || isMenuOpen || isBottomSheetOpen);
 
     const isPublicPath = ['/login', '/register', '/logout-confirmation', '/privacy-policy', '/support/user', '/support/delivery', '/download-app', '/app'].includes(location.pathname) || location.pathname.startsWith('/legal/');
     const hasSelectedLocation = !!(
@@ -365,7 +371,8 @@ const UserLayout = () => {
             <FloatingCartStrip />
             <LoginModal />
             <SearchOverlay />
-            <AppDownloadPrompt />
+            <AppDownloadPrompt blocked={promotionsBlocked} />
+            <AppOpenPopup blocked={promotionsBlocked} />
 
             <main className={`flex-grow bg-white dark:!bg-black transition-colors duration-300 w-full max-w-full ${hideDesktopChrome ? '' : 'pb-20 md:pb-0'} ${shouldAddPadding ? 'extra-mobile-padding' : ''}`}>
                 {shouldShowServiceUnavailable ? (

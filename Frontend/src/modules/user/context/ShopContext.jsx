@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { fetchCategories, fetchProducts, fetchActiveCampaigns, fetchActiveOfferDeals } from '../api/shopApi';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { fetchCategories, fetchProducts, fetchActiveCampaigns, fetchActiveOfferDeals, fetchPublicSettings } from '../api/shopApi';
 import { useStore } from './StoreContext';
 import { useCart } from './CartContext';
 import { toast } from 'react-toastify';
+import { readShopCache, hasShopCache, writeShopCache } from '../utils/shopCache';
 
 const ShopContext = createContext();
 const ShopUIContext = createContext();
@@ -24,46 +25,71 @@ export const useShopUI = () => {
 };
 
 export const ShopProvider = ({ children }) => {
-  const [categories, setCategories] = useState(() => {
-    const saved = localStorage.getItem('shop_categories');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [categories, setCategories] = useState(() => readShopCache('shop_categories'));
   const [products, setProducts] = useState([]);
-  const [campaigns, setCampaigns] = useState(() => {
-    const saved = localStorage.getItem('shop_campaigns');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [offers, setOffers] = useState(() => {
-    const saved = localStorage.getItem('shop_offers');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [loading, setLoading] = useState(!localStorage.getItem('shop_categories'));
+  const [campaigns, setCampaigns] = useState(() => readShopCache('shop_campaigns'));
+  const [offers, setOffers] = useState(() => readShopCache('shop_offers'));
+  const [loading, setLoading] = useState(() => !hasShopCache('shop_categories'));
   const [error, setError] = useState(null);
   const { activeStore } = useStore();
   const { clearCart } = useCart();
   const [lastStoreId, setLastStoreId] = useState(activeStore?.id);
 
   const [settings, setSettings] = useState(null);
+  const [settingsRefreshing, setSettingsRefreshing] = useState(false);
+  const settingsRequest = useRef(null);
+  const mounted = useRef(true);
+  const refreshSettings = useCallback(() => {
+    if (settingsRequest.current) return settingsRequest.current;
+    setSettingsRefreshing(true);
+    settingsRequest.current = fetchPublicSettings().then(data => {
+      if (mounted.current) setSettings(data);
+      return data;
+    }).catch(error => {
+      console.error('Public settings refresh failed:', error);
+      return null;
+    }).finally(() => {
+      settingsRequest.current = null;
+      if (mounted.current) setSettingsRefreshing(false);
+    });
+    return settingsRequest.current;
+  }, []);
+
+  useEffect(() => {
+    mounted.current = true;
+    const refresh = () => { if (document.visibilityState !== 'hidden') void refreshSettings(); };
+    window.addEventListener('focus', refresh);
+    window.addEventListener('pageshow', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    const timer = setInterval(refresh, 60_000);
+    return () => {
+      mounted.current = false;
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('pageshow', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+      clearInterval(timer);
+    };
+  }, [refreshSettings]);
 
   const refreshShopData = useCallback(async (showLoading = true) => {
     // Only show full page loading if we don't have categories yet
-    const hasCachedData = localStorage.getItem('shop_categories');
+    const hasCachedData = hasShopCache('shop_categories');
     if (showLoading && !hasCachedData) setLoading(true);
     try {
       const fetchParams = activeStore ? { storeId: activeStore.id, storeType: activeStore.type } : {};
-      const [categoriesData, campaignsData, offersData, settingsData] = await Promise.all([
+      const [categoriesData, campaignsData, offersData] = await Promise.all([
         fetchCategories(),
         fetchActiveCampaigns(fetchParams).catch(() => []),
         fetchActiveOfferDeals(fetchParams).catch(() => []),
-        import('../api/shopApi').then(m => m.fetchPublicSettings()).catch(() => null)
+        refreshSettings()
       ]);
       setCategories(categoriesData);
-      localStorage.setItem('shop_categories', JSON.stringify(categoriesData));
+      writeShopCache('shop_categories', categoriesData);
       
       setProducts([]); // No longer needed for home page mapping
       
       setCampaigns(campaignsData);
-      localStorage.setItem('shop_campaigns', JSON.stringify(campaignsData));
+      writeShopCache('shop_campaigns', campaignsData);
 
       // Filter offers that are isActive and not expired
       const now = new Date();
@@ -71,9 +97,8 @@ export const ShopProvider = ({ children }) => {
         o.isActive && (!o.expiryDate || new Date(o.expiryDate) > now)
       );
       setOffers(filteredOffers);
-      localStorage.setItem('shop_offers', JSON.stringify(filteredOffers));
+      writeShopCache('shop_offers', filteredOffers);
       
-      setSettings(settingsData);
       setError(null);
     } catch (err) {
       console.error('Error fetching shop data:', err);
@@ -81,7 +106,7 @@ export const ShopProvider = ({ children }) => {
     } finally {
       if (showLoading) setLoading(false);
     }
-  }, [activeStore]);
+  }, [activeStore, refreshSettings]);
 
   // Watch for store changes to clear cart and refresh data
   useEffect(() => {
@@ -108,11 +133,14 @@ export const ShopProvider = ({ children }) => {
   }, [products]);
 
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
+  const [activePromotion, setActivePromotion] = useState(null);
 
   const uiContextValue = useMemo(() => ({
     isBottomSheetOpen,
-    setIsBottomSheetOpen
-  }), [isBottomSheetOpen]);
+    setIsBottomSheetOpen,
+    activePromotion,
+    setActivePromotion
+  }), [isBottomSheetOpen, activePromotion]);
 
   const contextValue = useMemo(() => ({
     categories,
@@ -122,10 +150,12 @@ export const ShopProvider = ({ children }) => {
     loading,
     error,
     settings,
+    settingsRefreshing,
+    refreshSettings,
     refreshShopData,
     getProductsByCategory
   }), [
-    categories, products, campaigns, offers, loading, error, settings,
+    categories, products, campaigns, offers, loading, error, settings, settingsRefreshing, refreshSettings,
     refreshShopData, getProductsByCategory
   ]);
 

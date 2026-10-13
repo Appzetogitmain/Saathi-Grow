@@ -13,13 +13,14 @@ import {
 import { protectAny, protectAdmin } from '../middleware/authMiddleware.js';
 import { validateFcmUpdatePayload } from '../middleware/requestValidation.js';
 import { memoryUpload } from '../config/cloudinary.js';
+import { authorizeAppPopup } from '../middleware/appPopupMiddleware.js';
 
 const router = express.Router();
 
 router.put('/update-token', protectAny, validateFcmUpdatePayload, updateFCMToken);
 
 // Admin Specific Routes
-router.post('/admin/send', protectAdmin, memoryUpload.single('image'), adminSendNotification);
+router.post('/admin/send', protectAdmin, memoryUpload.single('image'), authorizeAppPopup, adminSendNotification);
 router.get('/admin/history', protectAdmin, getAdminNotificationHistory);
 router.get('/admin/search', protectAdmin, searchRecipients);
 router.delete('/delete', protectAny, deleteNotifications);

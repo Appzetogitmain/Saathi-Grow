@@ -70,6 +70,18 @@ const globalSettingSchema = new mongoose.Schema({
         'Both wallets are credited automatically upon successful delivery!'
       ]
     }
+  },
+
+  // App-Open Festival / Announcement Popup Card
+  appPopup: {
+    isEnabled: { type: Boolean, default: false },
+    title: { type: String, default: '', trim: true },
+    message: { type: String, default: '', trim: true },
+    imageUrl: { type: String, default: '', trim: true },
+    actionType: { type: String, enum: ['home', 'category', 'product', 'custom'], default: 'home' },
+    actionTarget: { type: String, default: '', trim: true },
+    buttonText: { type: String, default: 'Shop Now', trim: true },
+    version: { type: String, default: '1' }
   }
 }, {
   timestamps: true

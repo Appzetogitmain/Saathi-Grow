@@ -3,6 +3,9 @@ import Admin from '../models/Admin.js';
 import Vendor from '../models/Vendor.js';
 import DeliveryPartner from '../models/DeliveryPartner.js';
 import Notification from '../models/Notification.js';
+import GlobalSetting from '../models/GlobalSetting.js';
+import mongoose from 'mongoose';
+import { assertAppPopupPublisher, wantsAppPopup, preparePopupUpdate } from '../services/appPopupService.js';
 import { sendPushNotification, notifyAllUsers, notifyAdmins, notifyUsers } from '../services/notificationService.js';
 import { uploadBufferToCloudinary } from '../config/cloudinary.js';
 
@@ -197,6 +200,8 @@ export const adminSendNotification = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 
+    assertAppPopupPublisher(req.body, req.admin);
+
     const {
       title,
       body,
@@ -211,7 +216,7 @@ export const adminSendNotification = async (req, res) => {
       imageUrl
     } = req.body;
 
-    if (!title || !body) {
+    if (typeof title !== 'string' || typeof body !== 'string' || !title.trim() || !body.trim()) {
       return res.status(400).json({ success: false, message: 'Title and body are required' });
     }
 
@@ -279,7 +284,26 @@ export const adminSendNotification = async (req, res) => {
       data: pushData
     };
 
-    const record = await Notification.create(notificationData);
+    let record;
+    const setAsAppPopup = wantsAppPopup(req.body);
+    if (setAsAppPopup) {
+      const popup = await preparePopupUpdate({
+        isEnabled: true, title, message: body, imageUrl: promotionalImageUrl,
+        actionType: clickActionType || 'home',
+        actionTarget: (clickActionType === 'category' ? categorySlug : clickActionType === 'product' ? productId : clickActionType === 'custom' ? customLink : '') || '',
+        buttonText: 'Shop Now'
+      }, {}, { republish: true });
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          let globalSetting = await GlobalSetting.findOne().session(session);
+          if (!globalSetting) globalSetting = new GlobalSetting();
+          globalSetting.appPopup = popup;
+          await globalSetting.save({ session });
+          [record] = await Notification.create([notificationData], { session });
+        });
+      } finally { await session.endSession(); }
+    } else { record = await Notification.create(notificationData); }
 
     // Trigger FCM Push dispatch (without re-saving since skipSave=true is used internally or passed below)
     if (targetType === 'broadcast') {
@@ -293,9 +317,9 @@ export const adminSendNotification = async (req, res) => {
       await sendPushNotification(recipientId, finalRecipientModel, { title, body }, pushData, true);
     }
 
-    res.status(200).json({ success: true, message: 'Notification processed', record });
+    res.status(200).json({ success: true, message: setAsAppPopup ? 'Notification processed and app popup published' : 'Notification processed', record, ...(setAsAppPopup ? { appPopupPublished: true } : {}) });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(error.status || 500).json({ success: false, message: error.message });
   }
 };
 

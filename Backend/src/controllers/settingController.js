@@ -1,5 +1,6 @@
 import GlobalSetting from '../models/GlobalSetting.js';
 import { buildReferralSettings } from '../utils/referralSettings.js';
+import { preparePopupUpdate, AppPopupError } from '../services/appPopupService.js';
 
 // @desc    Get Global Settings
 // @route   GET /api/admin/settings
@@ -29,12 +30,20 @@ export const updateSettings = async (req, res) => {
     }
 
     // Direct updates (only allow safe fields)
-    const updates = req.body;
+    const updates = { ...req.body };
 
     // Prevent manual override of the platformWalletBalance from this general settings endpoint
     delete updates.platformWalletBalance;
     // Holidays are managed via dedicated /api/delivery-slots/admin/holidays endpoints
     delete updates.holidays;
+
+    let popupChanged = false;
+    const previousPopupVersion = settings.appPopup?.version;
+    if (updates.appPopup !== undefined) {
+      const popup = await preparePopupUpdate(updates.appPopup, settings.appPopup || {});
+      if (popup) { settings.appPopup = popup; popupChanged = true; }
+      delete updates.appPopup;
+    }
 
     if (updates.immediateDeliveryFee !== undefined) {
       const fee = Number(updates.immediateDeliveryFee);
@@ -46,10 +55,20 @@ export const updateSettings = async (req, res) => {
 
     Object.assign(settings, updates);
 
-    const updatedSettings = await settings.save();
+    let updatedSettings;
+    if (popupChanged && !settings.isNew) {
+      await settings.validate();
+      updatedSettings = await GlobalSetting.findOneAndUpdate({
+        _id: settings._id,
+        ...(previousPopupVersion === '1'
+          ? { $or: [{ 'appPopup.version': '1' }, { 'appPopup.version': { $exists: false } }] }
+          : { 'appPopup.version': previousPopupVersion ?? { $exists: false } })
+      }, settings.getChanges(), { new: true, runValidators: true });
+      if (!updatedSettings) throw new AppPopupError('This popup changed while saving. Reload settings and try again.', 409);
+    } else { updatedSettings = await settings.save(); }
     res.json(updatedSettings);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating settings', error: error.message });
+    res.status(error.status || 500).json({ message: error.status ? error.message : 'Error updating settings', error: error.message });
   }
 };
 
@@ -95,7 +114,17 @@ export const getPublicSettings = async (req, res) => {
             reason: h.reason || ''
           }))
         : [],
-      referral: buildReferralSettings(settings)
+      referral: buildReferralSettings(settings),
+      appPopup: settings.appPopup ? {
+        isEnabled: Boolean(settings.appPopup.isEnabled),
+        title: settings.appPopup.title || '',
+        message: settings.appPopup.message || '',
+        imageUrl: settings.appPopup.imageUrl || '',
+        actionType: settings.appPopup.actionType || 'home',
+        actionTarget: settings.appPopup.actionTarget || '',
+        buttonText: settings.appPopup.buttonText || 'Shop Now',
+        version: settings.appPopup.version || '1'
+      } : { isEnabled: false }
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching public settings', error: error.message });

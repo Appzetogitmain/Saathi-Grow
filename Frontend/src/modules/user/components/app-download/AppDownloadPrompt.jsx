@@ -6,14 +6,15 @@ import { QRCodeSVG } from 'qrcode.react';
 import { isWebView, isInstalledApp } from '../../../../utils/deviceUtils';
 import { useShop } from '../../context/ShopContext';
 import appLogo from '../../../../assets/logo_fav.png';
+import usePromotionSlot from '../../hooks/usePromotionSlot';
 
 const MODAL_DISMISS_KEY = 'saathigro_app_modal_dismissed_at';
 const PILL_DISMISS_KEY  = 'saathigro_app_pill_dismissed_session';
 const APP_INSTALLED_KEY = 'saathigro_app_installed';
 const DISMISS_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-export default function AppDownloadPrompt() {
-  const { settings } = useShop();
+export default function AppDownloadPrompt({ blocked = false }) {
+  const { settings, settingsRefreshing } = useShop();
   const location = useLocation();
 
   const [showModal, setShowModal] = useState(false);
@@ -108,7 +109,8 @@ export default function AppDownloadPrompt() {
     return () => window.removeEventListener('appinstalled', handleAppInstalled);
   }, []);
 
-  if (isInApp || isSuppressedRoute) return null;
+  const modalVisible = usePromotionSlot('download', showModal && !isInApp && !isSuppressedRoute && !blocked && !settingsRefreshing);
+  if (isInApp || isSuppressedRoute || blocked || settingsRefreshing) return null;
 
   const handleCloseModal = () => {
     setShowModal(false);
@@ -149,9 +151,9 @@ export default function AppDownloadPrompt() {
   return (
     <>
       {/* 1. WELCOME MODAL POPUP */}
-      <AnimatePresence>
-        {showModal && (
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+      {modalVisible && <AnimatePresence>
+        {modalVisible && (
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto" data-promotion-dialog="download" role="dialog" aria-modal="true" aria-label="Download the SaathiGro app">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -355,7 +357,7 @@ export default function AppDownloadPrompt() {
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>}
 
       {/* 2. SUBTLE FLOATING PILL / MINI BANNER (Appears after modal dismissal) */}
       <AnimatePresence>

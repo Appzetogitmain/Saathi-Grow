@@ -17,6 +17,7 @@ pnpm-debug.log*
 # Build folders
 dist/
 build/
+.popup-browser-check/
 
 # OS files
 .DS_Store
