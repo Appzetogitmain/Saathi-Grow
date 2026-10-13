@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Globe, Settings, Smartphone, Mail, Settings2, Loader, Sparkles } from 'lucide-react';
+import { Save, Globe, Settings, Smartphone, Mail, Settings2, Loader, Sparkles, Upload, Trash2, ImagePlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import * as settingApi from '../../api/settingApi';
@@ -16,6 +16,37 @@ const AppSettings = () => {
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const fileInputRef = useRef(null);
+
+    const handleImageUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please select a valid image file');
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('Image size must be less than 5MB');
+            return;
+        }
+
+        try {
+            setIsUploadingImage(true);
+            const res = await settingApi.uploadPopupBannerImage(token, file);
+            if (res.imageUrl) {
+                handlePopupChange('imageUrl', res.imageUrl);
+                toast.success('Poster image uploaded successfully!');
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.message || err.message || 'Failed to upload image');
+        } finally {
+            setIsUploadingImage(false);
+            if (e.target) e.target.value = '';
+        }
+    };
     const [settings, setSettings] = useState({
         supportEmail: '',
         supportPhone: '',
@@ -318,16 +349,86 @@ const AppSettings = () => {
                                 </div>
                             </div>
 
-                            <div className="space-y-1.5 focus-within:text-blue-600 text-slate-500 transition-colors">
-                                <label className="text-xs font-semibold ml-1">Poster / Banner Image URL</label>
+                            <div className="space-y-3 focus-within:text-blue-600 text-slate-500 transition-colors">
+                                <label className="text-xs font-semibold ml-1 block">Poster / Banner Image (Required for Popup)</label>
+
+                                {settings.appPopup?.imageUrl ? (
+                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3 max-w-lg">
+                                        <div className="relative w-full h-48 rounded-xl overflow-hidden bg-slate-200 flex items-center justify-center border border-slate-200/80">
+                                            <img
+                                                src={settings.appPopup.imageUrl}
+                                                alt="Festival Poster"
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1">
+                                            <span className="text-[11px] text-slate-500 font-mono truncate max-w-[280px]" title={settings.appPopup.imageUrl}>
+                                                {settings.appPopup.imageUrl}
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    disabled={isUploadingImage}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:text-blue-600 hover:border-blue-300 transition-all shadow-xs"
+                                                >
+                                                    <Upload size={13} />
+                                                    <span>Change</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handlePopupChange('imageUrl', '')}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-rose-200 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-50 transition-all shadow-xs"
+                                                >
+                                                    <Trash2 size={13} />
+                                                    <span>Remove</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3 max-w-2xl">
+                                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={isUploadingImage}
+                                                className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl border-2 border-dashed border-blue-300 hover:border-blue-500 bg-blue-50/60 hover:bg-blue-50 text-blue-600 text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                                            >
+                                                {isUploadingImage ? (
+                                                    <>
+                                                        <Loader className="animate-spin" size={16} />
+                                                        <span>Uploading Image...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <ImagePlus size={16} />
+                                                        <span>Upload Poster / Banner Image</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                            <span className="text-xs text-slate-400 font-medium text-center sm:text-left">or enter direct image URL below</span>
+                                        </div>
+
+                                        <input
+                                            type="url"
+                                            value={settings.appPopup?.imageUrl || ''}
+                                            onChange={(e) => handlePopupChange('imageUrl', e.target.value)}
+                                            placeholder="https://... (Direct image URL)"
+                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-normal text-slate-800 focus:bg-white focus:border-blue-500 outline-none transition-all"
+                                        />
+                                    </div>
+                                )}
+
                                 <input
-                                    type="url"
-                                    value={settings.appPopup?.imageUrl || ''}
-                                    onChange={(e) => handlePopupChange('imageUrl', e.target.value)}
-                                    placeholder="https://... (High quality festive banner / promotional poster)"
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-normal text-slate-800 focus:bg-white focus:border-blue-500 outline-none transition-all"
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp,image/avif"
+                                    disabled={isUploadingImage}
+                                    className="hidden"
+                                    onChange={handleImageUpload}
                                 />
-                                <p className="text-[10px] text-slate-400 ml-1">Recommended size: 800x600 or 1200x800 for best mobile presentation. If empty, a festive gradient card will be shown.</p>
+                                <p className="text-[10px] text-slate-400 ml-1">Upload a festive poster or banner (PNG, JPG, WEBP). Recommended size: 800×600 or 1200×800 for best mobile presentation.</p>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

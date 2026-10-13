@@ -50,3 +50,19 @@ export const getPublicSettings = async () => {
   const response = await axios.get(`${API_URL}/public`);
   return response.data;
 };
+
+export const uploadPopupBannerImage = async (token, file) => {
+  const authToken = token || readTokenFromStorage();
+  if (!authToken) throw new Error('Not authenticated');
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await axios.post(`${API_URL}/upload-popup-image`, formData, {
+    headers: {
+      Authorization: `Bearer ${authToken}`,
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  return response.data;
+};

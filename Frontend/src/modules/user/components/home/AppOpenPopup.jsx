@@ -55,7 +55,9 @@ const AppOpenPopup = ({ blocked = false }) => {
     // Remove the outgoing promotion immediately before another dialog claims the slot.
     if (!popupData || !visible) return null;
     const imageKey = `${currentVersion}:${popupData.imageUrl || ''}`;
-    const hasImage = Boolean(popupData.imageUrl && failedImage !== imageKey);
+    const hasImage = Boolean(popupData.imageUrl && popupData.imageUrl.trim() && failedImage !== imageKey);
+    // Strictly require a poster / banner image - no fallback gradient banner
+    if (!hasImage) return null;
     const title = popupData.title?.trim() || 'Special Festival Offer! 🎉';
     const message = popupData.message?.trim() || 'Discover special discounts and festive savings available for a limited time!';
     const buttonText = popupData.buttonText?.trim() || 'Shop Now';
@@ -102,51 +104,30 @@ const AppOpenPopup = ({ blocked = false }) => {
                         </button>
 
                         <div className="min-h-0 overflow-y-auto overscroll-contain [overflow-wrap:anywhere]">
-                        {/* Visual Banner Header */}
-                        {hasImage ? (
-                            <div className="relative w-full max-h-52 sm:max-h-60 overflow-hidden bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
-                                <img
-                                    src={popupData.imageUrl}
-                                    alt={title}
-                                    onError={() => setFailedImage(imageKey)}
-                                    className="w-full h-full max-h-52 sm:max-h-60 object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20 pointer-events-none" />
-                            </div>
-                        ) : (
-                            <div className="relative bg-gradient-to-r from-[#0c831f] via-[#0ea328] to-[#12b32d] pl-5 pr-16 sm:pl-6 pt-7 pb-6 text-white overflow-hidden">
-                                <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-[#CCFF00]">
-                                        <Sparkles size={18} />
-                                    </div>
-                                    <span className="text-[11px] font-black uppercase tracking-wider text-[#CCFF00]">
-                                        Special Announcement
-                                    </span>
-                                </div>
-                                <h3 id="app-open-popup-title" className="text-xl font-black text-white leading-tight">
-                                    {title}
-                                </h3>
-                            </div>
-                        )}
+                        {/* Poster Banner Image */}
+                        <div className="relative w-full max-h-56 sm:max-h-64 overflow-hidden bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
+                            <img
+                                src={popupData.imageUrl}
+                                alt={title}
+                                onError={() => setFailedImage(imageKey)}
+                                className="w-full h-full max-h-56 sm:max-h-64 object-cover"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20 pointer-events-none" />
+                        </div>
 
                         {/* Card Body */}
                         <div className="p-5 sm:p-6 text-left">
-                            {hasImage && (
-                                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-[#0c831f] dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider mb-2.5">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-[#0c831f] dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider mb-2.5">
                                     <Tag size={11} />
                                     <span>Special Offer</span>
                                 </div>
-                            )}
 
-                            {hasImage && (
-                                <h3 
+                            <h3 
                                     id="app-open-popup-title"
                                     className="text-lg sm:text-xl font-black text-slate-900 dark:text-white leading-tight tracking-tight mb-2"
                                 >
                                     {title}
                                 </h3>
-                            )}
 
                             <p className="text-xs sm:text-sm text-slate-600 dark:text-zinc-300 leading-relaxed font-normal mb-5">
                                 {message}

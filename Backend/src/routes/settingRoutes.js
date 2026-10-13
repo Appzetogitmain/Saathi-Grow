@@ -1,5 +1,6 @@
 import express from 'express';
-import { getSettings, updateSettings, getPublicSettings } from '../controllers/settingController.js';
+import { getSettings, updateSettings, getPublicSettings, uploadPopupImage } from '../controllers/settingController.js';
+import { memoryUpload } from '../config/cloudinary.js';
 import { protectAdmin, requirePermission } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -26,5 +27,6 @@ router.post('/download', (req, res) => {
 // Admin Routes for Dashboard
 router.get('/', protectAdmin, requirePermission('MANAGE_SETTINGS'), getSettings);
 router.put('/', protectAdmin, requirePermission('MANAGE_SETTINGS'), updateSettings);
+router.post('/upload-popup-image', protectAdmin, requirePermission('MANAGE_SETTINGS'), memoryUpload.single('image'), uploadPopupImage);
 
 export default router;

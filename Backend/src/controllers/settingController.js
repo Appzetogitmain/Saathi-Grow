@@ -1,3 +1,4 @@
+import { uploadBufferToCloudinary } from '../config/cloudinary.js';
 import GlobalSetting from '../models/GlobalSetting.js';
 import { buildReferralSettings } from '../utils/referralSettings.js';
 import { preparePopupUpdate, AppPopupError } from '../services/appPopupService.js';
@@ -128,5 +129,27 @@ export const getPublicSettings = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching public settings', error: error.message });
+  }
+};
+
+// @desc    Upload App-Open Festival/Offer Popup Image
+// @route   POST /api/settings/upload-popup-image
+// @access  Private (Admin only)
+export const uploadPopupImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Please select an image file to upload.' });
+    }
+    const uploaded = await uploadBufferToCloudinary({
+      buffer: req.file.buffer,
+      folder: 'saathigro/popup-banners',
+      transformation: [{ width: 1200, height: 800, crop: 'limit', quality: 'auto' }]
+    });
+    return res.status(200).json({
+      success: true,
+      imageUrl: uploaded.secure_url
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
