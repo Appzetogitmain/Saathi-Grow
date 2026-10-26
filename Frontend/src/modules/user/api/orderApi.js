@@ -181,18 +181,34 @@ export const fetchOrderRoute = async (token, orderId, lat = null, lng = null) =>
   return data;
 };
 
-export const fetchDeliverySlots = async () => {
-  const response = await fetch(`${API_BASE_URL}/delivery-slots`);
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.message || 'Failed to fetch delivery slots');
-  return data;
+export const fetchDeliverySlots = async (timeoutMs = 7000) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${API_BASE_URL}/delivery-slots`, {
+      signal: controller.signal
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Failed to fetch delivery slots');
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
 };
 
-export const fetchAvailableDeliveryDays = async (days = 5) => {
-  const response = await fetch(`${API_BASE_URL}/delivery-slots/available-days?days=${days}`);
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.message || 'Failed to fetch delivery availability');
-  return data;
+export const fetchAvailableDeliveryDays = async (days = 5, timeoutMs = 7000) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${API_BASE_URL}/delivery-slots/available-days?days=${days}`, {
+      signal: controller.signal
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Failed to fetch delivery availability');
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
 };
 
 // ─── TAG API ──────────────────────────────────────────────────────────────────

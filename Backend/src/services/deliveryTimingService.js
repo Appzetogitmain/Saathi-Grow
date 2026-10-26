@@ -86,6 +86,53 @@ export const getAvailableDays = async (daysToLookAhead = 5, now = new Date()) =>
   const days = [];
   const totalDaysToScan = Math.max(3, Math.min(14, Number(daysToLookAhead) || 5));
 
+  // Collect all dates to scan in advance
+  const dateStringsToScan = [];
+  for (let i = 0; i < totalDaysToScan; i++) {
+    const currentStepDate = new Date(baseUtcNoon.getTime() + i * 86400000);
+    const { date: dateStr } = getZonedDateParts(currentStepDate, timezone);
+    dateStringsToScan.push(dateStr);
+  }
+
+  // Pre-fetch booked order counts across all scanned dates in a single fast aggregation
+  const bookedCountMap = new Map();
+  let useAggregation = typeof Order.aggregate === 'function';
+
+  if (useAggregation) {
+    try {
+      const bookedCounts = await Order.aggregate([
+        {
+          $match: {
+            'deliveryWindowSnapshot.scheduledDate': { $in: dateStringsToScan },
+            status: { $nin: ['cancelled', 'returned'] },
+            deliverySlotId: { $ne: null }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              slotId: { $toString: '$deliverySlotId' },
+              scheduledDate: '$deliveryWindowSnapshot.scheduledDate'
+            },
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      if (Array.isArray(bookedCounts)) {
+        for (const item of bookedCounts) {
+          if (item._id?.slotId && item._id?.scheduledDate) {
+            bookedCountMap.set(`${item._id.slotId}_${item._id.scheduledDate}`, item.count);
+          }
+        }
+      } else {
+        useAggregation = false;
+      }
+    } catch {
+      useAggregation = false;
+    }
+  }
+
   for (let i = 0; i < totalDaysToScan; i++) {
     const currentStepDate = new Date(baseUtcNoon.getTime() + i * 86400000);
     const { date: dateStr } = getZonedDateParts(currentStepDate, timezone);
@@ -129,11 +176,16 @@ export const getAvailableDays = async (daysToLookAhead = 5, now = new Date()) =>
     const availableSlots = [];
     for (const slot of candidateSlots) {
       const max = slot.maxOrders || 50;
-      const bookedCount = await Order.countDocuments({
-        deliverySlotId: slot._id,
-        'deliveryWindowSnapshot.scheduledDate': dateStr,
-        status: { $nin: ['cancelled', 'returned'] }
-      });
+      let bookedCount = 0;
+      if (useAggregation) {
+        bookedCount = bookedCountMap.get(`${String(slot._id)}_${dateStr}`) || 0;
+      } else {
+        bookedCount = await Order.countDocuments({
+          deliverySlotId: slot._id,
+          'deliveryWindowSnapshot.scheduledDate': dateStr,
+          status: { $nin: ['cancelled', 'returned'] }
+        });
+      }
       if (bookedCount < max) {
         availableSlots.push({
           _id: slot._id,

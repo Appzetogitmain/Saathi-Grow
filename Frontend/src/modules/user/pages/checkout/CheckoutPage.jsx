@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useCart } from '../../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -68,6 +68,7 @@ const CheckoutPage = () => {
     const [selectedSlotLabel, setSelectedSlotLabel] = useState(null); // Display label
     const [isImmediate, setIsImmediate] = useState(true);          // Default = Immediate
     const [loadingSlots, setLoadingSlots] = useState(true);
+    const [slotsError, setSlotsError] = useState(false);
     const [deliverySettings, setDeliverySettings] = useState({ immediateDeliveryEnabled: true });
 
     // Phase 8: Multi-Day Slots & Address Persistence States
@@ -111,6 +112,100 @@ const CheckoutPage = () => {
     };
     const cityOnlySelected = isCityOnlySelection(globalLocation);
 
+    const loadSlots = useCallback(async () => {
+        setLoadingSlots(true);
+        setSlotsError(false);
+        try {
+            const [availabilityRes, settings] = await Promise.all([
+                fetchAvailableDeliveryDays(5).catch(err => {
+                    console.warn('Available days endpoint error, falling back to legacy slots:', err);
+                    return null;
+                }),
+                getPublicSettings().catch(err => {
+                    console.warn('Public settings fetch warning:', err);
+                    return null;
+                })
+            ]);
+
+            const resolvedSettings = settings || { immediateDeliveryEnabled: true };
+            setDeliverySettings(resolvedSettings);
+
+            if (availabilityRes && availabilityRes.success && availabilityRes.days?.length > 0) {
+                setAvailableDaysData(availabilityRes);
+                const firstAvailDay = availabilityRes.days.find(d => d.isAvailable) || availabilityRes.days[0];
+                setSelectedDate(firstAvailDay.date);
+
+                const canImmediate = availabilityRes.immediateDelivery?.enabled ?? resolvedSettings?.immediateDeliveryEnabled;
+                if (canImmediate && firstAvailDay.isToday) {
+                    setIsImmediate(true);
+                    setSelectedSlotId(null);
+                    setSelectedSlotLabel(null);
+                } else if (firstAvailDay.slots?.length > 0) {
+                    setIsImmediate(false);
+                    setSelectedSlotId(firstAvailDay.slots[0]._id);
+                    setSelectedSlotLabel(firstAvailDay.slots[0].label);
+                } else {
+                    setIsImmediate(false);
+                    setSelectedSlotId(null);
+                    setSelectedSlotLabel(null);
+                }
+                setDeliverySlots(firstAvailDay.slots || []);
+            } else {
+                const slots = await fetchDeliverySlots().catch(err => {
+                    console.warn('Legacy slots fetch also failed:', err);
+                    return [];
+                });
+                setDeliverySlots(slots || []);
+
+                const todayDateStr = new Date().toISOString().split('T')[0];
+                const canImmediate = resolvedSettings?.immediateDeliveryEnabled !== false;
+
+                const syntheticDay = {
+                    date: todayDateStr,
+                    displayLabel: 'Today',
+                    dateLabel: 'Today',
+                    dayName: 'Today',
+                    fullDayName: 'Today',
+                    isToday: true,
+                    isTomorrow: false,
+                    isHoliday: false,
+                    isAvailable: Boolean(canImmediate || (slots && slots.length > 0)),
+                    slots: slots || []
+                };
+
+                setAvailableDaysData({
+                    timezone: 'Asia/Kolkata',
+                    todayDate: todayDateStr,
+                    immediateDelivery: {
+                        enabled: canImmediate,
+                        fee: Number(resolvedSettings?.immediateDeliveryFee) || 0
+                    },
+                    days: [syntheticDay]
+                });
+                setSelectedDate(todayDateStr);
+
+                if (canImmediate) {
+                    setIsImmediate(true);
+                    setSelectedSlotId(null);
+                    setSelectedSlotLabel(null);
+                } else if (slots?.length > 0) {
+                    setIsImmediate(false);
+                    setSelectedSlotId(slots[0]._id);
+                    setSelectedSlotLabel(slots[0].label);
+                } else {
+                    setIsImmediate(false);
+                    setSelectedSlotId(null);
+                    setSelectedSlotLabel(null);
+                }
+            }
+        } catch (err) {
+            console.error('Slots fetch failed', err);
+            setSlotsError(true);
+        } finally {
+            setLoadingSlots(false);
+        }
+    }, []);
+
     useEffect(() => {
         window.scrollTo(0, 0);
         const fetchWallet = async () => {
@@ -124,56 +219,11 @@ const CheckoutPage = () => {
             }
         };
         fetchWallet();
-
-        const loadSlots = async () => {
-            try {
-                const [availabilityRes, settings] = await Promise.all([
-                    fetchAvailableDeliveryDays(5).catch(err => {
-                        console.warn('Available days endpoint error, falling back to legacy slots:', err);
-                        return null;
-                    }),
-                    getPublicSettings()
-                ]);
-
-                setDeliverySettings(settings || { immediateDeliveryEnabled: true });
-
-                if (availabilityRes && availabilityRes.success && availabilityRes.days?.length > 0) {
-                    setAvailableDaysData(availabilityRes);
-                    const firstAvailDay = availabilityRes.days.find(d => d.isAvailable) || availabilityRes.days[0];
-                    setSelectedDate(firstAvailDay.date);
-
-                    const canImmediate = availabilityRes.immediateDelivery?.enabled ?? settings?.immediateDeliveryEnabled;
-                    if (canImmediate && firstAvailDay.isToday) {
-                        setIsImmediate(true);
-                        setSelectedSlotId(null);
-                        setSelectedSlotLabel(null);
-                    } else if (firstAvailDay.slots?.length > 0) {
-                        setIsImmediate(false);
-                        setSelectedSlotId(firstAvailDay.slots[0]._id);
-                        setSelectedSlotLabel(firstAvailDay.slots[0].label);
-                    } else {
-                        setIsImmediate(false);
-                        setSelectedSlotId(null);
-                        setSelectedSlotLabel(null);
-                    }
-                    setDeliverySlots(firstAvailDay.slots || []);
-                } else {
-                    const slots = await fetchDeliverySlots();
-                    setDeliverySlots(slots || []);
-                    if (!settings?.immediateDeliveryEnabled) {
-                        setIsImmediate(false);
-                        setSelectedSlotId(slots[0]?._id || null);
-                        setSelectedSlotLabel(slots[0]?.label || null);
-                    }
-                }
-            } catch (err) {
-                console.error('Slots fetch failed', err);
-            } finally {
-                setLoadingSlots(false);
-            }
-        };
-        loadSlots();
     }, [token]);
+
+    useEffect(() => {
+        loadSlots();
+    }, [loadSlots]);
 
     // PREFILL ADDRESS LOGIC (Phase 8: Enhanced persistence & auto-select)
     useEffect(() => {
@@ -801,6 +851,22 @@ const CheckoutPage = () => {
                             {[1, 2, 3].map(i => (
                                 <div key={i} className="h-14 w-28 bg-gray-100 dark:bg-white/5 rounded-2xl" />
                             ))}
+                        </div>
+                    ) : slotsError && (!availableDaysData || availableDaysData.days?.length === 0) ? (
+                        <div className="p-3.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl flex items-center justify-between mx-1">
+                            <div className="flex items-center gap-2">
+                                <AlertCircle size={16} className="text-amber-600 shrink-0" />
+                                <span className="text-xs font-bold text-amber-800 dark:text-amber-300">
+                                    Unable to load delivery slots.
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={loadSlots}
+                                className="text-xs font-bold text-[#0c831f] hover:underline uppercase tracking-wider px-3 py-1.5 bg-white dark:bg-white/10 rounded-xl border border-gray-200 dark:border-white/10 shadow-sm active:scale-95 transition-all"
+                            >
+                                Retry
+                            </button>
                         </div>
                     ) : (
                         <div className="space-y-4">
