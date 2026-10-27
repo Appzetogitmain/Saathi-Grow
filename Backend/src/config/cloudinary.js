@@ -28,10 +28,7 @@ try {
 
 /**
  * Determine the public base URL for static uploads.
- * 1. process.env.APP_URL (if explicitly set)
- * 2. Dynamic host from incoming request (handles localhost vs saathigro.in automatically)
- * 3. process.env.CLIENT_URL
- * 4. Safe fallback
+ * In production, the backend runs on https://api.saathigro.in
  */
 export const getBaseUrl = (req) => {
   if (process.env.APP_URL) {
@@ -43,18 +40,17 @@ export const getBaseUrl = (req) => {
     if (host) return `${proto}://${host}`;
   }
   if (process.env.NODE_ENV === 'production') {
-    return (process.env.CLIENT_URL || 'https://saathigro.in').replace(/\/$/, '');
+    return 'https://api.saathigro.in';
   }
-  return (process.env.CLIENT_URL || 'http://localhost:5000').replace(/\/$/, '');
+  return 'http://localhost:5000';
 };
 
 /**
  * Prefix for upload URLs.
- * Default is 'api/uploads' because production reverse proxies (Nginx) typically
- * forward all '/api/*' requests to port 5000, ensuring immediate zero-config delivery.
+ * Default is 'uploads', served statically by Express at https://api.saathigro.in/uploads/...
  */
 export const getUploadPrefix = () => {
-  return (process.env.UPLOAD_PATH_PREFIX || 'api/uploads').replace(/^\/|\/$/g, '');
+  return (process.env.UPLOAD_PATH_PREFIX || 'uploads').replace(/^\/|\/$/g, '');
 };
 
 /**
