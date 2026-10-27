@@ -1,90 +1,162 @@
-import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import { v2 as realCloudinary } from 'cloudinary';
 import multer from 'multer';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { randomBytes } from 'crypto';
+
 dotenv.config();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+export const uploadsRootDir = path.resolve(__dirname, '../../uploads');
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// Ensure root uploads directory exists
+if (!fs.existsSync(uploadsRootDir)) {
+  fs.mkdirSync(uploadsRootDir, { recursive: true });
+}
+
+// Preserve Cloudinary config if credentials exist in .env
+try {
+  realCloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+} catch (_) {}
 
 /**
- * Helper: Detect the best web-safe OUTPUT format from a file object.
- * HEIC/HEIF are input-only formats from iPhone cameras — always convert to jpg.
- * Falls back to 'jpg' for camera blobs with no extension.
+ * Determine the public base URL for static uploads.
+ * 1. process.env.APP_URL (if explicitly set)
+ * 2. Dynamic host from incoming request (handles localhost vs saathigro.in automatically)
+ * 3. process.env.CLIENT_URL
+ * 4. Safe fallback
  */
-const detectFormat = (file) => {
-  const allowedOutput = ['jpg', 'png', 'webp', 'avif'];
-  if (file.originalname && file.originalname.includes('.')) {
-    const ext = file.originalname.split('.').pop().toLowerCase();
-    if (allowedOutput.includes(ext)) return ext;
-    if (ext === 'jpeg') return 'jpg';
+export const getBaseUrl = (req) => {
+  if (process.env.APP_URL) {
+    return process.env.APP_URL.replace(/\/$/, '');
   }
-  if (file.mimetype) {
-    const mimeExt = file.mimetype.split('/')[1];
-    if (allowedOutput.includes(mimeExt)) return mimeExt;
-    if (mimeExt === 'jpeg') return 'jpg';
+  if (req) {
+    const proto = req.headers?.['x-forwarded-proto'] || req.protocol || 'http';
+    const host = req.headers?.['x-forwarded-host'] || (typeof req.get === 'function' ? req.get('host') : req.headers?.host);
+    if (host) return `${proto}://${host}`;
   }
-  return 'jpg'; // safe default for camera captures
+  if (process.env.NODE_ENV === 'production') {
+    return (process.env.CLIENT_URL || 'https://saathigro.in').replace(/\/$/, '');
+  }
+  return (process.env.CLIENT_URL || 'http://localhost:5000').replace(/\/$/, '');
 };
 
 /**
- * Factory: Create a multer-storage-cloudinary storage for a given folder.
+ * Helper: Detect output format / extension safely.
  */
-const makeCloudinaryStorage = (folder) => new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: async (req, file) => ({
-    folder: folder,
-    format: detectFormat(file),
-    transformation: [{ width: 800, height: 800, crop: 'limit' }],
-  }),
-});
+const detectFormat = (file) => {
+  const allowedOutput = ['jpg', 'png', 'webp', 'avif', 'pdf'];
+  if (file.originalname && file.originalname.includes('.')) {
+    const ext = file.originalname.split('.').pop().toLowerCase();
+    if (allowedOutput.includes(ext)) return ext === 'jpeg' ? 'jpg' : ext;
+  }
+  if (file.mimetype) {
+    const mimeExt = file.mimetype.split('/')[1]?.toLowerCase();
+    if (allowedOutput.includes(mimeExt)) return mimeExt === 'jpeg' ? 'jpg' : mimeExt;
+    if (file.mimetype === 'application/pdf') return 'pdf';
+  }
+  return 'jpg';
+};
 
-// ── Per-entity Cloudinary storages ──────────────────────────────────────────
-const adminStorage     = makeCloudinaryStorage('saathigro/admin-profiles');
-const userStorage      = makeCloudinaryStorage('saathigro/user-profiles');
-const deliveryStorage  = makeCloudinaryStorage('saathigro/delivery-profiles');
-const productStorage   = makeCloudinaryStorage('saathigro/products');
-const complaintStorage = makeCloudinaryStorage('saathigro/complaint-attachments');
-const returnStorage    = makeCloudinaryStorage('saathigro/return-proof');
+/**
+ * Custom Multer storage engine that saves files directly to the server's
+ * `Backend/uploads/` directory and sets `file.path` to the full public URL.
+ * Existing controllers use `req.file.path` directly, so no controller code needs to change.
+ */
+function LocalDiskStorage(options) {
+  this.subfolder = options.subfolder || 'general';
+}
 
-// ── Default "general" upload (kept for backward compat) ─────────────────────
-const generalStorage = makeCloudinaryStorage('saathigro/uploads');
+LocalDiskStorage.prototype._handleFile = function _handleFile(req, file, cb) {
+  const cleanSubfolder = this.subfolder.replace(/^saathigro\/?/, '').replace(/^\//, '');
+  const destinationDir = path.join(uploadsRootDir, cleanSubfolder);
+
+  fs.mkdir(destinationDir, { recursive: true }, (mkdirErr) => {
+    if (mkdirErr) return cb(mkdirErr);
+
+    const ext = detectFormat(file);
+    const uniqueSuffix = `${Date.now()}-${randomBytes(6).toString('hex')}`;
+    const safeFieldname = (file.fieldname || 'file').replace(/[^a-zA-Z0-9_-]/g, '');
+    const filename = `${safeFieldname}-${uniqueSuffix}.${ext}`;
+    const finalLocalPath = path.join(destinationDir, filename);
+
+    const outStream = fs.createWriteStream(finalLocalPath);
+    file.stream.pipe(outStream);
+
+    outStream.on('error', (streamErr) => cb(streamErr));
+    outStream.on('finish', () => {
+      const baseUrl = getBaseUrl(req);
+      const relativePath = cleanSubfolder ? `${cleanSubfolder}/${filename}` : filename;
+      const publicUrl = `${baseUrl}/uploads/${relativePath}`;
+
+      cb(null, {
+        destination: destinationDir,
+        filename: filename,
+        path: publicUrl, // Controllers save this into MongoDB!
+        localPath: finalLocalPath,
+        size: outStream.bytesWritten,
+        mimetype: file.mimetype,
+        public_id: `uploads/${relativePath}`,
+        url: publicUrl,
+        secure_url: publicUrl,
+      });
+    });
+  });
+};
+
+LocalDiskStorage.prototype._removeFile = function _removeFile(req, file, cb) {
+  const target = file.localPath || file.path;
+  if (target && typeof target === 'string' && fs.existsSync(target)) {
+    fs.unlink(target, cb);
+  } else {
+    cb(null);
+  }
+};
+
+const makeLocalStorage = (subfolder) => new LocalDiskStorage({ subfolder });
+
+// ── Per-entity Local disk storages ──────────────────────────────────────────
+const adminStorage     = makeLocalStorage('admin-profiles');
+const userStorage      = makeLocalStorage('user-profiles');
+const deliveryStorage  = makeLocalStorage('delivery-profiles');
+const productStorage   = makeLocalStorage('products');
+const complaintStorage = makeLocalStorage('complaint-attachments');
+const returnStorage    = makeLocalStorage('return-proof');
+const generalStorage   = makeLocalStorage('general');
 
 const allowedMimeTypes = new Set([
   'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
-  'image/avif', 'image/heic', 'image/heif'
+  'image/avif', 'image/heic', 'image/heif', 'application/pdf'
 ]);
 
 const makeFileFilter = () => (req, file, cb) => {
-  // Accept anything that looks like an image:
-  // - standard image/* mimetypes
-  // - application/octet-stream: camera blobs from some Android WebViews
-  // - image/heic / image/heif: iPhone camera photos
   const mimetype = (file.mimetype || '').toLowerCase();
   const filename = (file.originalname || '').toLowerCase();
   const ext = filename.split('.').pop();
   
-  const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'heic', 'heif'];
+  const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'heic', 'heif', 'pdf'];
 
-  const isImage =
+  const isAllowed =
     mimetype.startsWith('image/') ||
+    mimetype === 'application/pdf' ||
     mimetype === 'application/octet-stream' ||
     mimetype === 'blob' ||
     allowedExtensions.includes(ext);
 
-  if (!isImage) {
+  if (!isAllowed) {
     return cb(new Error(`File type not allowed: ${file.mimetype || 'unknown'}`));
   }
   cb(null, true);
 };
 
-const uploadOpts = { fileFilter: makeFileFilter(), limits: { fileSize: 10 * 1024 * 1024 } };
-
-// Product images allow larger files (up to 50MB) than other uploads.
+const uploadOpts = { fileFilter: makeFileFilter(), limits: { fileSize: 15 * 1024 * 1024 } };
 const productUploadOpts = { fileFilter: makeFileFilter(), limits: { fileSize: 50 * 1024 * 1024 } };
 
 // Named exports — routes import whichever they need
@@ -92,8 +164,7 @@ const upload          = multer({ storage: adminStorage,    ...uploadOpts });
 const userUpload      = multer({ storage: userStorage,     ...uploadOpts });
 const deliveryUpload  = multer({ storage: deliveryStorage, ...uploadOpts });
 const productUpload   = multer({ storage: productStorage,  ...uploadOpts });
-// Dedicated large-limit uploader for product image/gallery (keeps same admin storage folder).
-const productImageUpload = multer({ storage: adminStorage, ...productUploadOpts });
+const productImageUpload = multer({ storage: productStorage, ...productUploadOpts });
 const complaintUpload = multer({ storage: complaintStorage,...uploadOpts });
 const returnUpload    = multer({ storage: returnStorage,   ...uploadOpts });
 
@@ -105,33 +176,88 @@ const deliveryPartnerUploadFields = deliveryUpload.fields([
   { name: 'rc', maxCount: 1 },
 ]);
 
-// Memory-based upload (used for programmatic Cloudinary streaming)
+// Memory-based upload
 const memoryUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 },
+  limits: { fileSize: 15 * 1024 * 1024 },
   fileFilter: makeFileFilter(),
 });
 
-const uploadBufferToCloudinary = ({
+/**
+ * Programmatic buffer upload (replaces uploadBufferToCloudinary)
+ * Saves buffer to Backend/uploads/<folder>/<filename> and returns Cloudinary-compatible payload
+ */
+const uploadBufferToCloudinary = async ({
   buffer,
-  folder = 'saathigro/uploads',
+  folder = 'uploads',
   publicId,
-  transformation = [{ quality: 'auto', fetch_format: 'auto' }]
-}) => new Promise((resolve, reject) => {
-  const stream = cloudinary.uploader.upload_stream(
-    {
-      folder,
-      public_id: publicId,
-      resource_type: 'image',
-      transformation
-    },
-    (error, result) => {
-      if (error) { reject(error); return; }
-      resolve(result);
+  transformation = [],
+  req
+}) => {
+  if (!buffer) {
+    throw new Error('uploadBufferToCloudinary: buffer is required');
+  }
+
+  const cleanFolder = folder.replace(/^saathigro\/?/, '').replace(/^\//, '') || 'general';
+  const targetDir = path.join(uploadsRootDir, cleanFolder);
+  await fs.promises.mkdir(targetDir, { recursive: true });
+
+  let ext = '.png';
+  if (buffer[0] === 0xFF && buffer[1] === 0xD8) ext = '.jpg';
+  else if (buffer[0] === 0x89 && buffer[1] === 0x50) ext = '.png';
+  else if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) ext = '.webp';
+
+  const baseName = publicId ? path.basename(publicId).replace(/\.[^/.]+$/, '') : `${Date.now()}-${randomBytes(6).toString('hex')}`;
+  const filename = `${baseName}${ext}`;
+  const finalLocalPath = path.join(targetDir, filename);
+
+  await fs.promises.writeFile(finalLocalPath, buffer);
+
+  const baseUrl = getBaseUrl(req);
+  const relativePath = `${cleanFolder}/${filename}`;
+  const publicUrl = `${baseUrl}/uploads/${relativePath}`;
+
+  return {
+    secure_url: publicUrl,
+    url: publicUrl,
+    public_id: `uploads/${relativePath}`,
+    bytes: buffer.length,
+    format: ext.replace('.', ''),
+  };
+};
+
+/**
+ * Compatibility wrapper for cloudinary object:
+ * Handles `destroy(publicId)` cleanly for local server files
+ * without throwing when Cloudinary credentials fail.
+ */
+const cloudinary = {
+  ...realCloudinary,
+  uploader: {
+    ...realCloudinary.uploader,
+    destroy: async (publicId) => {
+      if (!publicId) return { result: 'not found' };
+      try {
+        const cleanId = String(publicId).replace(/^\/?uploads\//, '');
+        const localTarget = path.join(uploadsRootDir, cleanId);
+        if (fs.existsSync(localTarget)) {
+          await fs.promises.unlink(localTarget);
+          return { result: 'ok' };
+        }
+      } catch (err) {
+        console.warn(`[LocalStorage] Could not delete local file for publicId: ${publicId}`, err.message);
+      }
+      try {
+        if (process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_CLOUD_NAME) {
+          return await realCloudinary.uploader.destroy(publicId);
+        }
+      } catch (_) {
+        // Silently ignore if Cloudinary account is disabled
+      }
+      return { result: 'ok' };
     }
-  );
-  stream.end(buffer);
-});
+  }
+};
 
 export {
   cloudinary,

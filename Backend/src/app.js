@@ -14,6 +14,7 @@ import connectDB from './config/db.js';
 import noCache from './utils/noCache.js';
 import { validateRuntimeEnv, printEnvValidationSummary } from './config/validateEnv.js';
 import { handleWalletTopupWebhook } from './controllers/walletController.js';
+import { uploadsRootDir } from './config/cloudinary.js';
 
 // Database Connection
 const envSummary = validateRuntimeEnv();
@@ -133,6 +134,18 @@ app.use((req, res, next) => {
   res.setHeader('X-Request-Id', requestId);
   next();
 });
+
+// Static media uploads serving
+const staticUploadOptions = {
+  maxAge: '30d',
+  immutable: true,
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+};
+app.use('/uploads', express.static(uploadsRootDir, staticUploadOptions));
+app.use('/api/uploads', express.static(uploadsRootDir, staticUploadOptions));
 
 // Root Route
 app.get('/', (req, res) => {
