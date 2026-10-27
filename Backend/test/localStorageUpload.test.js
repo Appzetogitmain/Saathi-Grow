@@ -25,8 +25,8 @@ test('LOCAL STORAGE: uploadBufferToCloudinary saves buffer to disk and returns p
   assert.ok(result.secure_url, 'Must return secure_url');
   assert.ok(result.url, 'Must return url');
   assert.ok(result.public_id, 'Must return public_id');
-  assert.match(result.secure_url, /\/uploads\/products\/test-product-sample\./);
-  assert.match(result.public_id, /^uploads\/products\/test-product-sample\./);
+  assert.match(result.secure_url, /\/api\/uploads\/products\/test-product-sample\./);
+  assert.match(result.public_id, /^api\/uploads\/products\/test-product-sample\./);
 
   // Verify file was written to disk
   const expectedDiskFile = path.join(uploadsRootDir, 'products', path.basename(result.secure_url));
@@ -66,7 +66,7 @@ test('LOCAL STORAGE: Multer instances and field middleware are properly configur
   assert.equal(typeof deliveryPartnerUploadFields, 'function');
 });
 
-test('LOCAL STORAGE E2E: Express multipart upload and static file serving', async () => {
+test('LOCAL STORAGE E2E: Express multipart upload and static file serving on /api/uploads', async () => {
   const app = express();
 
   // Static serving
@@ -78,6 +78,7 @@ test('LOCAL STORAGE E2E: Express multipart upload and static file serving', asyn
     }
   };
   app.use('/uploads', express.static(uploadsRootDir, staticUploadOptions));
+  app.use('/api/uploads', express.static(uploadsRootDir, staticUploadOptions));
 
   // Route with upload.single
   app.post('/test/upload-single', upload.single('profileImage'), (req, res) => {
@@ -123,9 +124,9 @@ test('LOCAL STORAGE E2E: Express multipart upload and static file serving', asyn
     const json = await res.json();
     assert.ok(json.success);
     assert.ok(json.file.path.startsWith(baseUrl), 'Path must use the server baseUrl');
-    assert.match(json.file.path, /\/uploads\/admin-profiles\/profileImage-.*\.png$/);
+    assert.match(json.file.path, /\/api\/uploads\/admin-profiles\/profileImage-.*\.png$/);
 
-    // 2. Test GET static file delivery
+    // 2. Test GET static file delivery via /api/uploads
     const fileRes = await fetch(json.file.path);
     assert.equal(fileRes.status, 200);
     const fileText = await fileRes.text();
@@ -144,9 +145,9 @@ test('LOCAL STORAGE E2E: Express multipart upload and static file serving', asyn
     });
     assert.equal(prodRes.status, 200);
     const prodJson = await prodRes.json();
-    assert.ok(prodJson.imagePath.includes('/uploads/products/'));
+    assert.ok(prodJson.imagePath.includes('/api/uploads/products/'));
     assert.equal(prodJson.galleryPaths.length, 2);
-    assert.ok(prodJson.galleryPaths[0].includes('/uploads/products/'));
+    assert.ok(prodJson.galleryPaths[0].includes('/api/uploads/products/'));
 
     // Clean up created test files
     await cloudinary.uploader.destroy(json.file.public_id);

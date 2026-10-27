@@ -49,6 +49,15 @@ export const getBaseUrl = (req) => {
 };
 
 /**
+ * Prefix for upload URLs.
+ * Default is 'api/uploads' because production reverse proxies (Nginx) typically
+ * forward all '/api/*' requests to port 5000, ensuring immediate zero-config delivery.
+ */
+export const getUploadPrefix = () => {
+  return (process.env.UPLOAD_PATH_PREFIX || 'api/uploads').replace(/^\/|\/$/g, '');
+};
+
+/**
  * Helper: Detect output format / extension safely.
  */
 const detectFormat = (file) => {
@@ -93,8 +102,9 @@ LocalDiskStorage.prototype._handleFile = function _handleFile(req, file, cb) {
     outStream.on('error', (streamErr) => cb(streamErr));
     outStream.on('finish', () => {
       const baseUrl = getBaseUrl(req);
+      const prefix = getUploadPrefix();
       const relativePath = cleanSubfolder ? `${cleanSubfolder}/${filename}` : filename;
-      const publicUrl = `${baseUrl}/uploads/${relativePath}`;
+      const publicUrl = `${baseUrl}/${prefix}/${relativePath}`;
 
       cb(null, {
         destination: destinationDir,
@@ -103,7 +113,7 @@ LocalDiskStorage.prototype._handleFile = function _handleFile(req, file, cb) {
         localPath: finalLocalPath,
         size: outStream.bytesWritten,
         mimetype: file.mimetype,
-        public_id: `uploads/${relativePath}`,
+        public_id: `${prefix}/${relativePath}`,
         url: publicUrl,
         secure_url: publicUrl,
       });
@@ -214,13 +224,14 @@ const uploadBufferToCloudinary = async ({
   await fs.promises.writeFile(finalLocalPath, buffer);
 
   const baseUrl = getBaseUrl(req);
+  const prefix = getUploadPrefix();
   const relativePath = `${cleanFolder}/${filename}`;
-  const publicUrl = `${baseUrl}/uploads/${relativePath}`;
+  const publicUrl = `${baseUrl}/${prefix}/${relativePath}`;
 
   return {
     secure_url: publicUrl,
     url: publicUrl,
-    public_id: `uploads/${relativePath}`,
+    public_id: `${prefix}/${relativePath}`,
     bytes: buffer.length,
     format: ext.replace('.', ''),
   };
@@ -238,7 +249,7 @@ const cloudinary = {
     destroy: async (publicId) => {
       if (!publicId) return { result: 'not found' };
       try {
-        const cleanId = String(publicId).replace(/^\/?uploads\//, '');
+        const cleanId = String(publicId).replace(/^\/?(api\/)?uploads\//, '');
         const localTarget = path.join(uploadsRootDir, cleanId);
         if (fs.existsSync(localTarget)) {
           await fs.promises.unlink(localTarget);
