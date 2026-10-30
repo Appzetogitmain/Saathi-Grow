@@ -26,7 +26,9 @@ export const getOfferDealById = async (req, res) => {
     const offer = await OfferDeal.findById(req.params.id)
       .populate('products.productId', 'name image basePrice mrp sku variants subCategory');
     if (!offer) return res.status(404).json({ message: 'Offer not found' });
-    res.json(offer);
+    const offerObj = offer.toObject ? offer.toObject() : offer;
+    offerObj.products = (offerObj.products || []).filter(p => p && p.productId);
+    res.json(offerObj);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -69,7 +71,7 @@ export const createOfferDeal = async (req, res) => {
       bgColor,
       textColor,
       accentColor,
-      products: parsedProducts,
+      products: (Array.isArray(parsedProducts) ? parsedProducts : []).filter(p => p && p.productId),
       expiryDate,
       displayLocation,
       displayOrder: displayOrder !== undefined ? Number(displayOrder) : 0,
@@ -151,7 +153,8 @@ export const updateOfferDeal = async (req, res) => {
 
     if (products) {
       const parsedProducts = typeof products === 'string' ? JSON.parse(products) : products;
-      offer.products = parsedProducts;
+      const validProducts = (Array.isArray(parsedProducts) ? parsedProducts : []).filter(p => p && p.productId);
+      offer.products = validProducts;
 
       if (parsedProducts && parsedProducts.length > 0) {
         for (const p of parsedProducts) {
@@ -179,6 +182,7 @@ export const deleteOfferDeal = async (req, res) => {
   try {
     const offer = await OfferDeal.findById(req.params.id);
     if (!offer) return res.status(404).json({ message: 'Offer not found' });
+
 
     if (req.vendor && offer.vendor?.toString() !== req.vendor._id.toString()) {
       return res.status(403).json({ message: 'Not authorized to delete this offer' });

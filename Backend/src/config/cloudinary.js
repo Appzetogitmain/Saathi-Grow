@@ -35,9 +35,12 @@ export const getBaseUrl = (req) => {
     return process.env.APP_URL.replace(/\/$/, '');
   }
   if (req) {
-    const proto = req.headers?.['x-forwarded-proto'] || req.protocol || 'http';
+    let proto = req.headers?.['x-forwarded-proto'] || req.protocol || 'http';
     const host = req.headers?.['x-forwarded-host'] || (typeof req.get === 'function' ? req.get('host') : req.headers?.host);
-    if (host) return `${proto}://${host}`;
+    if (host) {
+      if (host.includes('saathigro.in')) proto = 'https';
+      return `${proto}://${host}`;
+    }
   }
   if (process.env.NODE_ENV === 'production') {
     return 'https://api.saathigro.in';

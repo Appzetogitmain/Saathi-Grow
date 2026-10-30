@@ -47,7 +47,7 @@ const ManageCampaign = () => {
                         accentColor: campaign.accentColor || '#E91E63',
                         isActive: campaign.isActive !== undefined ? campaign.isActive : true
                     });
-                    setSelectedProducts(campaign.products.map(p => ({
+                    setSelectedProducts((campaign.products || []).filter(p => p && p.productId).map(p => ({
                         productId: p.productId?._id || p.productId,
                         name: p.productId?.name,
                         image: p.productId?.image,
@@ -110,7 +110,7 @@ const ManageCampaign = () => {
         try {
             const payload = {
                 ...formData,
-                products: selectedProducts.map(p => ({
+                products: selectedProducts.filter(p => p && p.productId).map(p => ({
                     productId: p.productId,
                     basePrice: p.basePrice
                 }))

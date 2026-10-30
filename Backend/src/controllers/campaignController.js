@@ -63,6 +63,7 @@ export const getCampaignById = async (req, res) => {
       .populate('products.productId', 'name image basePrice mrp sku variants subCategory')
       .lean();
     if (!section) return res.status(404).json({ message: 'Campaign not found' });
+    section.products = (section.products || []).filter(p => p && p.productId);
     res.json(section);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -264,7 +265,7 @@ export const createCampaignSection = async (req, res) => {
       textColor,
       accentColor,
       displayType: displayType || 'festive',
-      products: parsedProducts,
+      products: (Array.isArray(parsedProducts) ? parsedProducts : []).filter(p => p && p.productId),
       bannerImage: req.file ? req.file.path : ''
     });
 
@@ -324,7 +325,8 @@ export const updateCampaignSection = async (req, res) => {
 
     if (products) {
       const parsedProducts = typeof products === 'string' ? JSON.parse(products) : products;
-      section.products = parsedProducts;
+      const validProducts = (Array.isArray(parsedProducts) ? parsedProducts : []).filter(p => p && p.productId);
+      section.products = validProducts;
 
       if (parsedProducts && parsedProducts.length > 0) {
         const productUpdates = parsedProducts
@@ -383,6 +385,7 @@ export const getCampaignProducts = async (req, res) => {
       .populate('products.productId', 'name image basePrice mrp sku unitType unitValue category subCategory status isVeg branchStocks vendor stock lowStockThreshold variants');
 
     if (!section) return res.status(404).json({ message: 'Campaign not found' });
+    section.products = (section.products || []).filter(p => p && p.productId);
 
     // Inject store context
     let products = section.products || [];
