@@ -1,6 +1,4 @@
 # Environment & Secrets
-.env
-.env.*
 *.env
 serviceAccountKey.json
 *.pem
@@ -24,7 +22,6 @@ yarn-debug.log*
 # OS / Editor files
 .DS_Store
 Thumbs.db
-.vscode/
 .idea/
 
 # Local scripts / temp
@@ -35,3 +32,4 @@ temp_interactive_push.bat
 # Local uploads
 Backend/uploads/*
 !Backend/uploads/.gitkeep
+config.bat
